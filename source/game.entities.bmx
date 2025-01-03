@@ -1,11 +1,12 @@
 SuperStrict
+Import Brl.ObjectList
+Import Math.Vector
 
-Interface IRenderable
-	Method Render()
-End Interface
+
 
 
 Type TGameEntity
+	Field pos:SVec2f
 	Field id:Int
 	Global _lastID:Int
 	
@@ -17,13 +18,12 @@ Type TGameEntity
 	
 	Method Update:Int()
 	End Method
-End Type
 
 
-Type TGameWorld Extends TGameEntity Implements IRenderable
-	Method Render() override
+	Method Render:Int()
 	End Method
 End Type
+
 
 	
 	

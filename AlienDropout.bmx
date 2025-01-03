@@ -2,7 +2,8 @@ SuperStrict
 Framework SDL.SDLRenderMax2D
 Import "source/framework/base.util.deltatimer.bmx"
 Import "source/game.entities.bmx"
-Import Brl.Map
+Import "source/game.world.bmx"
+Import Brl.ObjectList
 
 '=== SETUP GRAPHICS / WINDOW ===
 Graphics 800,600,0,0, SDL_WINDOW_RESIZABLE | GRAPHICS_SWAPINTERVAL1
@@ -17,9 +18,9 @@ Enum EGameScreens
 End Enum
 
 Global appExit:Int = False
-Global gameScreen:EGameScreens = EGameScreens.Game 'start right in the game
-'all "game screen" entities "managed" by the game
-Global gameEntities:TIntMap = New TIntMap
+Global gameScreen:EGameScreens = EGameScreens.Start 'start right in the game
+'all "game screen" entities "managed" by the game(screen)
+Global gameScreenEntities:TObjectList = New TObjectList
 
 
 
@@ -33,6 +34,11 @@ Function AppUpdate:Int()
 	If KeyHit(KEY_ESCAPE) Then AppExit = True
 	
 	Select gameScreen
+		case EGameScreens.Start
+			'for now: init new game and move to game
+			StartGame()
+			gameScreen = EGameScreens.Game
+		
 		case EGameScreens.Game
 			ScreenGameUpdate()
 	End Select
@@ -52,16 +58,25 @@ End Function
 
 
 '=== GAME LOGIC ===
+Function StartGame:Int()
+	gameScreenEntities.Clear()
+	Local gameWorld:TGameWorld = New TGameWorld
+	
+	gameScreenEntities.AddLast(gameWorld)
+
+End Function
+
+
 Function ScreenGameUpdate:Int()
-	For Local entity:TGameEntity = EachIn gameEntities.Values()
+	For Local entity:TGameEntity = EachIn gameScreenEntities
 		entity.Update()
 	Next
 End Function
 
 
 Function ScreenGameRender:Int()
-	For Local renderable:IRenderable = EachIn gameEntities.Values()
-		renderable.Render()
+	For Local entity:TGameEntity = EachIn gameScreenEntities
+		entity.Render()
 	Next
 End Function
 
