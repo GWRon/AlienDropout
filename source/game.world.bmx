@@ -3,14 +3,14 @@ Import "game.entities.bmx"
 
 
 Type TGameWorld Extends TGameEntity
-	Field size:SVec2I
+	Field area:SRectI
 	
 	'elements in the world background
 	Field backgroundEntities:TObjectList = New TObjectList
 	'elements in the world foreground (over eg space ships)
 	Field foregroundEntities:TObjectList = New TObjectList
 
-	Field player:TGameEntity
+	Field player:TPlayerEntity
 	Field mothership:TGameEntity
 	Field mothershipSmartBomb:TGameEntity
 	Field mothershipDrops:TObjectList = New TObjectList
@@ -27,13 +27,14 @@ Type TGameWorld Extends TGameEntity
 		allEntities.Clear()
 		
 		player = new TPlayerEntity()
-		player.SetPosition(New SVec2F(size.x / 2.0, size.y - 50))
-		player.SetPositionLimits(New SRectI(40, size.y - 50, size.x - 80, 0), True)
+		player.SetPosition(New SVec2F(area.x / 2.0, area.y + area.h - 50))
+		player.SetPositionLimits(New SRectI(area.x + 60, Int(player.pos.y), area.x + area.w - 120, 0), True)
 
 		mothership = new TMothershipEntity()
-		mothership.SetPosition(New SVec2F(size.x / 2.0, 50))
+		mothership.SetPosition(New SVec2F(area.x / 2.0, area.y + 20))
 		mothership.SetVelocity(New SVec2F(+300, 0))
-		mothership.SetPositionLimits(New SRectI(40, 50, size.x - 80, 0), True)
+		mothership.SetSize(New SVec2I(120, 30))
+		mothership.SetPositionLimits(New SRectI(area.x + 60, Int(mothership.pos.y), area.x + area.w - 120, 0), True)
 
 		allEntities.AddLast(player)
 		allEntities.AddLast(mothership)
@@ -50,11 +51,42 @@ Type TGameWorld Extends TGameEntity
 			Else
 				player.SetVelocity(New SVec2F(0, 0))
 			EndIf
+			
+			If KeyDown(KEY_SPACE)
+				if Millisecs() - player.lastBulletTime > 250
+					player.FireBullet()
+				EndIf
+			EndIf
+			'manual hits = rapid fire possible
+			If KeyHit(KEY_SPACE)
+				if Millisecs() - player.lastBulletTime > 50
+					player.FireBullet()
+				EndIf
+			EndIf
+
 		EndIf
-	
 	
 		For Local entity:TGameEntity = EachIn allEntities
 			entity.Update(delta)
+		Next
+		
+		'check bullets (do it here, avoids having bullets to know others)
+		For Local bullet:TBulletEntity = EachIn player.bullets
+			If mothership.IntersectsEntity(bullet)
+				bullet.alive = False
+				continue
+			EndIf
+			
+			'bullet too high or low (above mothership or below player)
+			If bullet.pos.y < mothership.pos.y - mothership.size.y
+				'boom on the ground
+				bullet.alive = False
+				continue
+			ElseIf bullet.pos.y > player.pos.y + player.size.y
+				'boom on the ground
+				bullet.alive = False
+				continue
+			Endif
 		Next
 	End Method
 	
@@ -74,5 +106,7 @@ Type TGameWorld Extends TGameEntity
 		For Local entity:TGameEntity = EachIn foregroundEntities
 			entity.Render()
 		Next
+		
+		DrawText("Bullets: " + player.bullets.count(), 10,80)
 	End Method
 End Type

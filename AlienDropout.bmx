@@ -1,26 +1,16 @@
 SuperStrict
 Framework SDL.SDLRenderMax2D
 Import "source/framework/base.util.deltatimer.bmx"
+Import "source/game.globals.bmx"
 Import "source/game.entities.bmx"
 Import "source/game.world.bmx"
-Import Brl.ObjectList
+Import "source/game.hud.bmx"
+
 
 '=== SETUP GRAPHICS / WINDOW ===
 Graphics 800,600,0,0, SDL_WINDOW_RESIZABLE | GRAPHICS_SWAPINTERVAL1
+SetVirtualResolution(APP_WIDTH, APP_HEIGHT) 'resize properly
 SetBlend AlphaBlend
-
-
-'=== GAME GLOBALS ===
-Enum EGameScreens
-	Start
-	Game
-	Highscore
-End Enum
-
-Global appExit:Int = False
-Global gameScreen:EGameScreens = EGameScreens.Start 'start right in the game
-'all "game screen" entities "managed" by the game(screen)
-Global gameScreenEntities:TObjectList = New TObjectList
 
 
 
@@ -62,11 +52,16 @@ End Function
 Function StartGame:Int()
 	gameScreenEntities.Clear()
 	Local gameWorld:TGameWorld = New TGameWorld
-	gameWorld.size = New SVec2I(GraphicsWidth(), GraphicsHeight())
+	'20 on top for hud
+	gameWorld.area = New SRectI(0, 50, APP_WIDTH, APP_HEIGHT - 50)
 	gameWorld.Init()
 
-	gameScreenEntities.AddLast(gameWorld)
+	'20 on top for hud
+	Local gameHUD:TGameHUD = New TGameHUD
+	gameHUD.area = New SRectI(0, 0, APP_WIDTH, 50)
 
+	gameScreenEntities.AddLast(gameWorld)
+	gameScreenEntities.AddLast(gameHUD)
 End Function
 
 
