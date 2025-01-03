@@ -7,7 +7,7 @@ Import Brl.ObjectList
 
 '=== SETUP GRAPHICS / WINDOW ===
 Graphics 800,600,0,0, SDL_WINDOW_RESIZABLE | GRAPHICS_SWAPINTERVAL1
-
+SetBlend AlphaBlend
 
 
 '=== GAME GLOBALS ===
@@ -25,7 +25,7 @@ Global gameScreenEntities:TObjectList = New TObjectList
 
 
 '=== PREPARE GAME LOOP ===
-GetDeltatimer().Init(60, 60) '60 UPS, 60 FPS
+GetDeltatimer().Init(60, -1) '60 UPS, 60 FPS
 GetDeltaTimer()._funcUpdate = AppUpdate
 GetDeltaTimer()._funcRender = AppRender
 
@@ -46,13 +46,14 @@ End Function
 
 Function AppRender:Int()
 	Cls
+	SetColor 255,255,255
 
 	Select gameScreen
 		case EGameScreens.Game
 			ScreenGameRender()
 	End Select
 
-	Flip 0
+	Flip 1
 End Function
 
 
@@ -61,7 +62,9 @@ End Function
 Function StartGame:Int()
 	gameScreenEntities.Clear()
 	Local gameWorld:TGameWorld = New TGameWorld
-	
+	gameWorld.size = New SVec2I(GraphicsWidth(), GraphicsHeight())
+	gameWorld.Init()
+
 	gameScreenEntities.AddLast(gameWorld)
 
 End Function
@@ -69,7 +72,7 @@ End Function
 
 Function ScreenGameUpdate:Int()
 	For Local entity:TGameEntity = EachIn gameScreenEntities
-		entity.Update()
+		entity.Update( GetDeltaTimer().GetDelta() )
 	Next
 End Function
 
