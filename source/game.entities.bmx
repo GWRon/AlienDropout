@@ -219,8 +219,8 @@ Type TPlayerEntity Extends TGameEntity
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 200, 200, 255
-		'pos is "bottom middle"
-		DrawRect(pos.x -10, pos.y -20, 20,20)
+		'pos is "middle"
+		DrawRect(pos.x -10, pos.y -10, 20,20)
 
 		For Local bullet:TGameEntity = EachIn bullets
 			bullet.Render()
@@ -236,9 +236,9 @@ End Type
 Type TMothershipEntity Extends TGameEntity
 	Method Behaviour:Int(delta:Float) override
 		'move left and right
-		If self.pos.x <= posLimit.x
+		If self.pos.x - self.size.x/2 <= posLimit.x
 			self.SetVelocity(New SVec2f(+ Abs(self.velocity.x), self.velocity.y))
-		ElseIf self.pos.x >= posLimit.x + posLimit.w
+		ElseIf self.pos.x + self.size.x/2 >= posLimit.x + posLimit.w
 			self.SetVelocity(New SVec2f(- Abs(self.velocity.x), self.velocity.y))
 		EndIf
 	End Method
@@ -248,10 +248,13 @@ Type TMothershipEntity Extends TGameEntity
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 255, 100, 100
-		'pos is "top middle"
-		DrawRect(pos.x -30, pos.y, 60,10)
-		DrawRect(pos.x -30, pos.y, 20,20)
-		DrawRect(pos.x +10, pos.y, 20,20)
+		'pos is "middle"
+		DrawRect(pos.x - size.x/2, pos.y - size.y/2, 80,10)
+		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 10, 60,10)
+		DrawRect(pos.x - size.x/2, pos.y - size.y/2 + 20, 80,10)
+		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 30, 10,10)
+		DrawRect(pos.x - size.x/2 + 30, pos.y - size.y/2 + 30, 20,10)
+		DrawRect(pos.x - size.x/2 + 60, pos.y - size.y/2 + 30, 10,10)
 
 		SetColor(oldCol)
 	End Method

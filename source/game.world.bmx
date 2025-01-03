@@ -27,14 +27,14 @@ Type TGameWorld Extends TGameEntity
 		
 		player = new TPlayerEntity()
 		player.SetPosition(pos.x / 2.0, pos.y + size.y - 50)
-		player.SetPositionLimits(New SRectI(Int(pos.x + 60), Int(player.pos.y), Int(pos.x + size.x - 120), 0), True)
+		player.SetPositionLimits(New SRectI(Int(pos.x + 45), Int(player.pos.y), Int(pos.x + size.x - 90), 0), True)
 		player.SetSize(60, 30)
 
 		mothership = new TMothershipEntity()
 		mothership.SetPosition(pos.x / 2.0, pos.y + 20)
-		mothership.SetPositionLimits(New SRectI(Int(pos.x + 60), Int(mothership.pos.y), Int(pos.x + size.x - 120), 0), True)
+		mothership.SetPositionLimits(New SRectI(Int(pos.x + 30), Int(mothership.pos.y), Int(pos.x + size.x - 60), 0), True)
 		mothership.SetVelocity(New SVec2F(+300, 0))
-		mothership.SetSize(120, 30)
+		mothership.SetSize(80, 40)
 
 		mothershipDropWall = New TMothershipDropWallEntity()
 		mothershipDropWall.SetPosition(pos.x, 100)
@@ -124,6 +124,6 @@ Type TGameWorld Extends TGameEntity
 		Next
 		
 		DrawText("Bullets: " + player.bullets.count(), 10,80)
-		DrawText("Slot: " + mothershipDropWall.GetSlot(MouseX()), 10,100)
+		DrawText("Slot: " + mothershipDropWall.GetSlot(player.pos.x), 10,100)
 	End Method
 End Type
