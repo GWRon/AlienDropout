@@ -1,0 +1,15 @@
+/AlienDropout
+/AlienDropout.debug
+/AlienDropout_Linux32
+/AlienDropout_Linux64
+*.exe
+*.bak
+*.app
+*.bmx/
+*.vscode/
+log.*.txt
+*logfiles/
+.DS_Store
+*.ffs_db
+.project
+AlienDropout.desktop
