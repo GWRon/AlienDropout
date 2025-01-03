@@ -166,6 +166,11 @@ Type TBulletEntity Extends TGameEntity
 	Field emitterID:Int
 	Field hitID:Int
 	Field alive:Int = True
+	Global bulletSize:Svec2I = New SVec2I(8,8)
+	
+	Method New()
+		size = bulletSize
+	End Method
 	
 	Method SetEmitter(id:Int)
 		self.emitterID = id
@@ -183,7 +188,7 @@ Type TBulletEntity Extends TGameEntity
 
 		SetColor 200, 255, 255
 		'pos is "middle"
-		DrawRect(pos.x -4, pos.y -4, 8,8)
+		DrawRect(pos.x - size.x/2, pos.y - size.y/2, size.x, size.y)
 
 		SetColor(oldCol)
 	End Method
@@ -199,6 +204,7 @@ Type TPlayerEntity Extends TGameEntity
 		Local bullet:TBulletEntity = New TBulletEntity
 		bullet.SetVelocity(New SVec2F(0, -400))
 		bullet.SetPosition(New SVec2F(self.pos.x, self.pos.y - 10))
+		bullet.emitterID = self.id
 		bullets.AddLast(bullet)
 		
 		lastBulletTime = Millisecs()
@@ -234,6 +240,32 @@ End Type
 
 
 Type TMothershipEntity Extends TGameEntity
+	Field lastBulletTime:Int
+	Field bulletInterval:Int = 500 'difficulty dependend?
+	Field bullets:TObjectList = New TObjectList
+	Field currentDropWallSlot:Int
+
+	Method FireBullet()
+		Local bullet:TBulletEntity = New TBulletEntity
+		bullet.SetVelocity(New SVec2F(0, 400))
+		bullet.SetPosition(New SVec2F(self.pos.x, self.pos.y - 10))
+		bullet.emitterID = self.id
+		bullets.AddLast(bullet)
+
+		lastBulletTime = Millisecs()
+	End Method
+
+
+	Method Update:Int(delta:Float) override
+		Super.Update(delta:Float)
+
+		For Local bullet:TBulletEntity = EachIn bullets.Reversed()
+			bullet.Update(delta)
+			if not bullet.alive Then bullets.Remove(bullet)
+		Next
+	End Method
+
+
 	Method Behaviour:Int(delta:Float) override
 		'move left and right
 		If self.pos.x - self.size.x/2 <= posLimit.x
@@ -241,6 +273,16 @@ Type TMothershipEntity Extends TGameEntity
 		ElseIf self.pos.x + self.size.x/2 >= posLimit.x + posLimit.w
 			self.SetVelocity(New SVec2f(- Abs(self.velocity.x), self.velocity.y))
 		EndIf
+		
+		'over a slot?
+		If currentDropWallSlot > 0 and currentDropWallSlot <> 7
+			If Millisecs() - lastBulletTime > bulletInterval
+				local oldLastBulletTime:Int = lastBulletTime
+				FireBullet()
+				lastBulletTime = lastBulletTime + bulletInterval 'so many bullets if not shot a while
+				'todo ... nur wenn sich ein wenig bewegt wurde (um volle slots zu vermeiden)
+			EndIf
+		EndIf 
 	End Method
 
 
@@ -255,6 +297,10 @@ Type TMothershipEntity Extends TGameEntity
 		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 30, 10,10)
 		DrawRect(pos.x - size.x/2 + 30, pos.y - size.y/2 + 30, 20,10)
 		DrawRect(pos.x - size.x/2 + 60, pos.y - size.y/2 + 30, 10,10)
+
+		For Local bullet:TGameEntity = EachIn bullets
+			bullet.Render()
+		Next
 
 		SetColor(oldCol)
 	End Method

@@ -10,7 +10,7 @@ Type TGameWorld Extends TGameEntity
 
 	Field player:TPlayerEntity
 	Field mothershipDropWall:TMothershipDropWallEntity
-	Field mothership:TGameEntity
+	Field mothership:TMothershipEntity
 	Field mothershipSmartBomb:TGameEntity
 	Field mothershipDrops:TObjectList = New TObjectList
 	'allows to simply iterate over all elements on the screen
@@ -77,11 +77,28 @@ Type TGameWorld Extends TGameEntity
 			entity.Update(delta)
 		Next
 		
+		'inform mothership about state
+		If mothership
+			Local slot:Int = mothershipDropWall.GetSlot(mothership.pos.x - TBulletEntity.bulletSize.x/2)
+			if slot and slot = mothershipDropWall.GetSlot(mothership.pos.x + TBulletEntity.bulletSize.x/2)
+				mothership.currentDropWallSlot = slot
+			Else
+				mothership.currentDropWallSlot = 0
+			EndIf
+		EndIf
+		
 		'check bullets (do it here, avoids having bullets to know others)
 		For Local bullet:TBulletEntity = EachIn player.bullets
-			If mothership.IntersectsWith(bullet)
-				bullet.alive = False
-				continue
+			if bullet.emitterID = player.id 
+				If mothership.IntersectsWith(bullet)
+					bullet.alive = False
+					continue
+				EndIf
+			ElseIf bullet.emitterID = mothership.id
+				If player.IntersectsWith(bullet)
+					bullet.alive = False
+					continue
+				EndIf
 			EndIf
 
 			If mothershipDropWall.IntersectsWith(bullet)
