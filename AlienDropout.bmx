@@ -53,7 +53,8 @@ Function StartGame:Int()
 	gameScreenEntities.Clear()
 	Local gameWorld:TGameWorld = New TGameWorld
 	'20 on top for hud
-	gameWorld.area = New SRectI(0, 50, APP_WIDTH, APP_HEIGHT - 50)
+	gameWorld.SetPosition(0, 50)
+	gameWorld.SetSize(APP_WIDTH, APP_HEIGHT - 50)
 	gameWorld.Init()
 
 	'20 on top for hud

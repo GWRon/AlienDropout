@@ -66,8 +66,12 @@ Type TGameEntity
 	End Method
 	
 
-	Method SetPosition(pos:SVec2F)
-		self.pos = pos
+	Method SetPosition(pos:SVec2F) Final
+		SetPosition(pos.x, pos.y)
+	End Method
+
+	Method SetPosition(x:Float, y:Float)
+		self.pos = New SVec2F(x, y)
 	End Method
 
 
@@ -98,19 +102,32 @@ Type TGameEntity
 	End Method
 
 
-	Method SetSize(size:SVec2I)
-		self.size = size
+	Method SetSize(size:SVec2I) Final
+		SetSize(size.x, size.y)
+	End Method
+
+	Method SetSize(w:Int, h:Int)
+		self.size = New SVec2I(w, h)
 	End Method
 		
 	
-	Method IntersectsEntity:Int(e:TGameEntity)
+	Method IntersectsWith:Int(e:TGameEntity)
+		Return IntersectsWith(e.pos.x, e.pos.y, e.size.x, e.size.y)
+	End Method
+
+	Method IntersectsWith:Int(area:SRectI)
+		Return IntersectsWith(area.x, area.y, area.w, area.h)
+	End Method
+
+	Method IntersectsWith:Int(x:Float, y:Float, w:Float, h:Float)
 		'AABB approach
-		Return Not (e.pos.x + e.size.x <= self.pos.x Or ..
-					e.pos.x >= self.pos.x + self.size.x Or ..
-					e.pos.y + e.size.y <= self.pos.y Or ..
-					e.pos.y >= self.pos.y + self.size.y ..
+		Return Not (x + w <= self.pos.x Or ..
+					x >= self.pos.x + self.size.x Or ..
+					y + h <= self.pos.y Or ..
+					y >= self.pos.y + self.size.y ..
 				)
 	End Method
+
 
 	
 	Method Move:Int(delta:Float)
@@ -236,6 +253,77 @@ Type TMothershipEntity Extends TGameEntity
 		DrawRect(pos.x -30, pos.y, 20,20)
 		DrawRect(pos.x +10, pos.y, 20,20)
 
+		SetColor(oldCol)
+	End Method
+End Type
+
+
+
+
+Type TMothershipDropWallEntity Extends TGameEntity
+	Field wallOffsetX:Int = 40
+	Field wallWidth:Int = 24
+	Field wallHeight:Int = 100
+	Field dropSlotWidth:Int = 24
+	Field bombSlotWidth:Int
+	Field wallsPos:SVec2F[14]
+
+	Method SetSize(x:Int, y:Int) override
+		Super.SetSize(x, y)
+		
+		'knowing the size we can now align stuff
+		bombSlotWidth = size.x - 2*wallOffsetX - 14*wallWidth - 12*dropSlotWidth
+		wallHeight = size.y
+		
+		For local i:int = 0 until 7
+			wallsPos[i] = New SVec2F(wallOffsetX + pos.x + i*(wallWidth + dropSlotWidth), wallHeight)
+		Next
+		For local i:int = 0 until 7
+			wallsPos[i+7] = New SVec2F(wallsPos[6].x + bombSlotWidth + i*(wallWidth + dropSlotWidth) + wallWidth, wallHeight)
+		Next
+	End Method
+
+
+	Method IntersectsWith:Int(x:Float, y:Float, w:Float, h:Float) override
+		'before doing fine grained checks, we check the bounding box
+		If Not Super.IntersectsWith(x,y,w,h) Then Return False
+
+		'check y once and then only x'es (as there are more variants)
+		if y + h < pos.y Then Return False
+		if y > pos.y + size.y Then Return False
+
+		'left or right of wall
+		if x + w < pos.x + 40 Then Return False
+		if x > pos.x + size.x Then Return False
+		'right of left wall and left of right wall (aka in the middle)
+		if x > wallsPos[6].x + wallWidth and x + w < wallsPos[7].x Then Return False
+		
+		Return True
+	End Method
+	
+	
+	Method GetSlot:Int(x:Float)
+		If x < wallsPos[0].x Or x > wallsPos[13].x
+			Return 0 'too far left/right
+		ElseIf x > wallsPos[6].x + wallWidth and x < wallsPos[7].x
+			Return 7 'center slot
+		EndIf
+		
+		For local i:Int = 1 until 14
+			if x > wallsPos[i-1].x + wallWidth and x < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
+		Next
+		Return 0
+	End Method
+
+	
+	Method Render:Int() override
+		Local oldCol:SColor8; GetColor(oldCol)
+
+		SetColor 100, 200, 255
+		For local i:int = 0 until 14
+			DrawRect(wallsPos[i].x, wallsPos[i].y, wallWidth, wallHeight)
+		Next
+		
 		SetColor(oldCol)
 	End Method
 End Type

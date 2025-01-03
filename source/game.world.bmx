@@ -3,14 +3,13 @@ Import "game.entities.bmx"
 
 
 Type TGameWorld Extends TGameEntity
-	Field area:SRectI
-	
 	'elements in the world background
 	Field backgroundEntities:TObjectList = New TObjectList
 	'elements in the world foreground (over eg space ships)
 	Field foregroundEntities:TObjectList = New TObjectList
 
 	Field player:TPlayerEntity
+	Field mothershipDropWall:TMothershipDropWallEntity
 	Field mothership:TGameEntity
 	Field mothershipSmartBomb:TGameEntity
 	Field mothershipDrops:TObjectList = New TObjectList
@@ -27,15 +26,23 @@ Type TGameWorld Extends TGameEntity
 		allEntities.Clear()
 		
 		player = new TPlayerEntity()
-		player.SetPosition(New SVec2F(area.x / 2.0, area.y + area.h - 50))
-		player.SetPositionLimits(New SRectI(area.x + 60, Int(player.pos.y), area.x + area.w - 120, 0), True)
+		player.SetPosition(pos.x / 2.0, pos.y + size.y - 50)
+		player.SetPositionLimits(New SRectI(Int(pos.x + 60), Int(player.pos.y), Int(pos.x + size.x - 120), 0), True)
+		player.SetSize(60, 30)
 
 		mothership = new TMothershipEntity()
-		mothership.SetPosition(New SVec2F(area.x / 2.0, area.y + 20))
+		mothership.SetPosition(pos.x / 2.0, pos.y + 20)
+		mothership.SetPositionLimits(New SRectI(Int(pos.x + 60), Int(mothership.pos.y), Int(pos.x + size.x - 120), 0), True)
 		mothership.SetVelocity(New SVec2F(+300, 0))
-		mothership.SetSize(New SVec2I(120, 30))
-		mothership.SetPositionLimits(New SRectI(area.x + 60, Int(mothership.pos.y), area.x + area.w - 120, 0), True)
+		mothership.SetSize(120, 30)
 
+		mothershipDropWall = New TMothershipDropWallEntity()
+		mothershipDropWall.SetPosition(pos.x, 100)
+		mothershipDropWall.SetSize(size.x, 100)
+
+		foregroundEntities.AddLast(mothershipDropWall)
+
+		allEntities.AddLast(mothershipDropWall)
 		allEntities.AddLast(player)
 		allEntities.AddLast(mothership)
 	End Method
@@ -72,8 +79,17 @@ Type TGameWorld Extends TGameEntity
 		
 		'check bullets (do it here, avoids having bullets to know others)
 		For Local bullet:TBulletEntity = EachIn player.bullets
-			If mothership.IntersectsEntity(bullet)
+			If mothership.IntersectsWith(bullet)
 				bullet.alive = False
+				continue
+			EndIf
+
+			If mothershipDropWall.IntersectsWith(bullet)
+				'wall hit?
+				Local slot:Int = mothershipDropWall.GetSlot(bullet.pos.x - bullet.size.x/2)
+				if not slot or not mothershipDropWall.GetSlot(bullet.pos.x + bullet.size.x/2)
+					bullet.alive = False
+				EndIf
 				continue
 			EndIf
 			
@@ -108,5 +124,6 @@ Type TGameWorld Extends TGameEntity
 		Next
 		
 		DrawText("Bullets: " + player.bullets.count(), 10,80)
+		DrawText("Slot: " + mothershipDropWall.GetSlot(MouseX()), 10,100)
 	End Method
 End Type
