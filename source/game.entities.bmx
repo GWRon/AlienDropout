@@ -1,6 +1,7 @@
 SuperStrict
 Import Brl.ObjectList
 Import Math.Vector
+Import "game.globals.bmx"
 
 
 Struct SRectI
@@ -200,12 +201,17 @@ Type TPlayerEntity Extends TGameEntity
 	Field lastBulletTime:Int
 	Field bullets:TObjectList = New TObjectList
 
+	Global SIGNAL_PLAYER_FIREBULLET:ULong = GameSignals.RegisterSignal("player.firebullet")
+
+	
 	Method FireBullet()
 		Local bullet:TBulletEntity = New TBulletEntity
 		bullet.SetVelocity(New SVec2F(0, -400))
 		bullet.SetPosition(New SVec2F(self.pos.x, self.pos.y - 10))
 		bullet.emitterID = self.id
 		bullets.AddLast(bullet)
+		
+		GameSignals.EmitSignal(SIGNAL_PLAYER_FIREBULLET, bullet, self)
 		
 		lastBulletTime = Millisecs()
 	End Method
@@ -226,7 +232,8 @@ Type TPlayerEntity Extends TGameEntity
 
 		SetColor 200, 200, 255
 		'pos is "middle"
-		DrawRect(pos.x -10, pos.y -10, 20,20)
+		DrawRect(pos.x -10, pos.y -10, 20,10)
+		DrawRect(pos.x -30, pos.y, 60,10)
 
 		For Local bullet:TGameEntity = EachIn bullets
 			bullet.Render()
@@ -311,11 +318,11 @@ End Type
 
 Type TMothershipDropWallEntity Extends TGameEntity
 	Field wallOffsetX:Int = 40
+	Field wallsPos:SVec2F[14]
 	Field wallWidth:Int = 24
 	Field wallHeight:Int = 100
 	Field dropSlotWidth:Int = 24
 	Field bombSlotWidth:Int
-	Field wallsPos:SVec2F[14]
 
 	Method SetSize(x:Int, y:Int) override
 		Super.SetSize(x, y)
@@ -351,15 +358,11 @@ Type TMothershipDropWallEntity Extends TGameEntity
 	End Method
 	
 	
-	Method GetSlot:Int(x:Float)
-		If x < wallsPos[0].x Or x > wallsPos[13].x
-			Return 0 'too far left/right
-		ElseIf x > wallsPos[6].x + wallWidth and x < wallsPos[7].x
-			Return 7 'center slot
-		EndIf
-		
+	Method GetSlot:Int(x:Float, width:Int)
+		Local xL:Int = x - width/2
+		Local xR:Int = x + width/2
 		For local i:Int = 1 until 14
-			if x > wallsPos[i-1].x + wallWidth and x < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
+			if xL > wallsPos[i-1].x + wallWidth and xR < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
 		Next
 		Return 0
 	End Method
