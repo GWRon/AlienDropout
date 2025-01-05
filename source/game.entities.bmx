@@ -145,6 +145,11 @@ Type TGameEntity
 		EndIf
 	End Method
 	
+	
+	'information that an other entity has hit this one at (local) x,y
+	Method OnGetHit:Int(hittingEntityID:Int, localX:Int=0, localY:Int=0)
+	End Method
+	
 
 	Method Behaviour:Int(delta:Float)
 	End Method
@@ -201,6 +206,7 @@ Type TPlayerEntity Extends TGameEntity
 	Field lastBulletTime:Int
 
 	Global SIGNAL_PLAYER_FIREBULLET:ULong = GameSignals.RegisterSignal("player.firebullet")
+	Global SIGNAL_PLAYER_GOTHIT:ULong = GameSignals.RegisterSignal("player.gothit")
 
 	
 	Method FireBullet()
@@ -208,6 +214,15 @@ Type TPlayerEntity Extends TGameEntity
 		
 		lastBulletTime = Millisecs()
 	End Method
+
+
+	' information that an other entity has hit this mothership
+	Method OnGetHit:Int(hittingEntityID:Int, localX:Int=0, localY:Int=0)
+		GameSignals.EmitSignal(SIGNAL_PLAYER_GOTHIT, null, self)
+
+		' TODO: eg animate damage / shake something
+	End Method
+
 
 
 	Method Render:Int() override
@@ -228,14 +243,23 @@ End Type
 Type TMothershipEntity Extends TGameEntity
 	Field lastBulletTime:Int
 	Field bulletInterval:Int = 500 'difficulty dependend?
-	Field currentDropWallSlot:Int
+	Field currentDropWallLaneNumber:Int
 
 	Global SIGNAL_MOTHERSHIP_FIREBULLET:ULong = GameSignals.RegisterSignal("mothership.firebullet")
+	Global SIGNAL_MOTHERSHIP_GOTHIT:ULong = GameSignals.RegisterSignal("mothership.gothit")
 
 	Method FireBullet()
 		GameSignals.EmitSignal(SIGNAL_MOTHERSHIP_FIREBULLET, null, self)
 
 		lastBulletTime = Millisecs()
+	End Method
+
+
+	' information that an other entity has hit this mothership
+	Method OnGetHit:Int(hittingEntityID:Int, localX:Int=0, localY:Int=0)
+		GameSignals.EmitSignal(SIGNAL_MOTHERSHIP_GOTHIT, null, self)
+		
+		' TODO: eg animate damage / shake something
 	End Method
 
 
@@ -248,7 +272,7 @@ Type TMothershipEntity Extends TGameEntity
 		EndIf
 		
 		'over a slot?
-		If currentDropWallSlot > 0 and currentDropWallSlot <> 7
+		If currentDropWallLaneNumber > 0 and currentDropWallLaneNumber <> 7
 			If Millisecs() - lastBulletTime > bulletInterval
 				local oldLastBulletTime:Int = lastBulletTime
 				FireBullet()
@@ -277,27 +301,57 @@ End Type
 
 
 
+Type TMothershipDropEntity Extends TGameEntity
+	'Todo: move down, emit signal when "full" etc
+End Type
+
+
+
+Type TMothershipDropLaneEntity Extends TGameEntity
+	Field levels:TMothershipDropEntity[]
+	
+	Method SetLevelAmount(levelAmount:Int)
+		levels = levels[.. levelAmount]
+	End Method
+End Type
+
+
+
 
 Type TMothershipDropWallEntity Extends TGameEntity
+	Field wallCount:Int = 14
 	Field wallOffsetX:Int = 40
 	Field wallsPos:SVec2F[14]
 	Field wallWidth:Int = 24
 	Field wallHeight:Int = 100
-	Field dropSlotWidth:Int = 24
+	Field dropLaneCount:Int = 12    ' how many drop lane
+	Field dropLaneLevels:Int = 5    ' how many levels each drop lane has 
+	Field dropLaneWidth:Int = 24
+	Field dropLanes:TMothershipDropLaneEntity[]
 	Field bombSlotWidth:Int
+	
+	Method New()
+		' prepare slot array so all can "fit in"
+		dropLanes = new TMothershipDropLaneEntity[dropLaneCount]
+		For local i:Int = 0 until dropLanes.length
+			dropLanes[i] = New TMothershipDropLaneEntity
+			dropLanes[i].SetLevelAmount(dropLaneLevels)
+		Next
+	End Method
+	
 
 	Method SetSize(x:Int, y:Int) override
 		Super.SetSize(x, y)
 		
 		'knowing the size we can now align stuff
-		bombSlotWidth = size.x - 2*wallOffsetX - 14*wallWidth - 12*dropSlotWidth
+		bombSlotWidth = size.x - 2*wallOffsetX - 14*wallWidth - 12*dropLaneWidth
 		wallHeight = size.y
 		
 		For local i:int = 0 until 7
-			wallsPos[i] = New SVec2F(wallOffsetX + pos.x + i*(wallWidth + dropSlotWidth), wallHeight)
+			wallsPos[i] = New SVec2F(wallOffsetX + pos.x + i*(wallWidth + dropLaneWidth), wallHeight)
 		Next
 		For local i:int = 0 until 7
-			wallsPos[i+7] = New SVec2F(wallsPos[6].x + bombSlotWidth + i*(wallWidth + dropSlotWidth) + wallWidth, wallHeight)
+			wallsPos[i+7] = New SVec2F(wallsPos[6].x + bombSlotWidth + i*(wallWidth + dropLaneWidth) + wallWidth, wallHeight)
 		Next
 	End Method
 
@@ -320,13 +374,25 @@ Type TMothershipDropWallEntity Extends TGameEntity
 	End Method
 	
 	
-	Method GetSlot:Int(x:Float, width:Int)
+	Method GetLaneNumber:Int(x:Float, width:Int)
 		Local xL:Int = x - width/2
 		Local xR:Int = x + width/2
 		For local i:Int = 1 until 14
 			if xL > wallsPos[i-1].x + wallWidth and xR < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
 		Next
 		Return 0
+	End Method
+	
+	
+	'returns wether dropping was possible or not
+	Method DropToLane:Int(laneNumber:Int)
+		Local laneIndex:Int = laneNumber - 1
+		If laneIndex < 0 or laneIndex >= dropLanes.length Then Return -1
+		
+		Local lane:TMothershipDropLaneEntity = dropLanes[laneIndex]
+		'if self.dropLanes
+		
+		Return True
 	End Method
 
 	

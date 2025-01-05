@@ -22,6 +22,8 @@ Type TGameWorld Extends TGameEntity
 	'this way the "currently handled" gameworld instance could be set there
 	Global signalReceiver:TGameWorld
 
+	Global SIGNAL_ENTITY_GOTHIT:ULong = GameSignals.RegisterSignal("entity.gothit")
+
 	
 	Method New()
 		GameSignals.RegisterSignalReceiver(TPlayerEntity.SIGNAL_PLAYER_FIREBULLET, _OnBulletGetsFired)
@@ -29,6 +31,7 @@ Type TGameWorld Extends TGameEntity
 	End Method
 
 
+	'global function which redirects to current instance
 	Function _OnBulletGetsFired:Int(signalName:String, data:Object, sender:Object)
 		signalReceiver.OnBulletGetsFired(signalName, data, sender)
 	End Function
@@ -45,6 +48,8 @@ Type TGameWorld Extends TGameEntity
 		Elseif entity = mothership
 			bullet.SetVelocity(New SVec2F(0, +400))
 			bullet.SetPosition(New SVec2F(mothership.pos.x, mothership.pos.y + mothership.size.y/2))
+			'make it a "drop"
+			print "drop to lane: " + mothershipDropWall.GetLaneNumber(mothership.pos.x, 2)
 		EndIf
 
 		bullets.AddLast(bullet)
@@ -111,7 +116,7 @@ Type TGameWorld Extends TGameEntity
 		
 		'inform mothership about state
 		If mothership
-			mothership.currentDropWallSlot = mothershipDropWall.GetSlot(mothership.pos.x, TBulletEntity.bulletSize.x)
+			mothership.currentDropWallLaneNumber = mothershipDropWall.GetLaneNumber(mothership.pos.x, TBulletEntity.bulletSize.x)
 		EndIf
 
 
@@ -123,11 +128,13 @@ Type TGameWorld Extends TGameEntity
 		For Local bullet:TBulletEntity = EachIn bullets
 			if bullet.emitterID = player.id 
 				If mothership.IntersectsWith(bullet)
+					mothership.OnGetHit(bullet.emitterID)
 					bullet.alive = False
 					continue
 				EndIf
 			ElseIf bullet.emitterID = mothership.id
 				If player.IntersectsWith(bullet)
+					player.OnGetHit(bullet.emitterID)
 					bullet.alive = False
 					continue
 				EndIf
@@ -135,7 +142,8 @@ Type TGameWorld Extends TGameEntity
 
 			If mothershipDropWall.IntersectsWith(bullet)
 				'wall hit?
-				If Not mothershipDropWall.GetSlot(bullet.pos.x, bullet.size.x)
+				If Not mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
+					mothershipDropWall.OnGetHit(bullet.emitterID)
 					bullet.alive = False
 				EndIf
 				continue
@@ -182,6 +190,6 @@ Type TGameWorld Extends TGameEntity
 		Next
 		
 		DrawText("Bullets: " + bullets.count(), 10,80)
-		DrawText("Slot: " + mothershipDropWall.GetSlot(player.pos.x, 1), 10,100)
+		DrawText("Lane: " + mothershipDropWall.GetLaneNumber(player.pos.x, 1), 10,100)
 	End Method
 End Type
