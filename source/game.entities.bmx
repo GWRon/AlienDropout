@@ -199,33 +199,16 @@ End Type
 
 Type TPlayerEntity Extends TGameEntity
 	Field lastBulletTime:Int
-	Field bullets:TObjectList = New TObjectList
 
 	Global SIGNAL_PLAYER_FIREBULLET:ULong = GameSignals.RegisterSignal("player.firebullet")
 
 	
 	Method FireBullet()
-		Local bullet:TBulletEntity = New TBulletEntity
-		bullet.SetVelocity(New SVec2F(0, -400))
-		bullet.SetPosition(New SVec2F(self.pos.x, self.pos.y - 10))
-		bullet.emitterID = self.id
-		bullets.AddLast(bullet)
-		
-		GameSignals.EmitSignal(SIGNAL_PLAYER_FIREBULLET, bullet, self)
+		GameSignals.EmitSignal(SIGNAL_PLAYER_FIREBULLET, null, self)
 		
 		lastBulletTime = Millisecs()
 	End Method
 
-
-	Method Update:Int(delta:Float) override
-		Super.Update(delta:Float)
-
-		For Local bullet:TBulletEntity = EachIn bullets.Reversed()
-			bullet.Update(delta)
-			if not bullet.alive Then bullets.Remove(bullet)
-		Next
-	End Method
-	
 
 	Method Render:Int() override
 		Local oldCol:SColor8; GetColor(oldCol)
@@ -234,10 +217,6 @@ Type TPlayerEntity Extends TGameEntity
 		'pos is "middle"
 		DrawRect(pos.x -10, pos.y -10, 20,10)
 		DrawRect(pos.x -30, pos.y, 60,10)
-
-		For Local bullet:TGameEntity = EachIn bullets
-			bullet.Render()
-		Next
 
 		SetColor(oldCol)
 	End Method
@@ -249,27 +228,14 @@ End Type
 Type TMothershipEntity Extends TGameEntity
 	Field lastBulletTime:Int
 	Field bulletInterval:Int = 500 'difficulty dependend?
-	Field bullets:TObjectList = New TObjectList
 	Field currentDropWallSlot:Int
 
+	Global SIGNAL_MOTHERSHIP_FIREBULLET:ULong = GameSignals.RegisterSignal("mothership.firebullet")
+
 	Method FireBullet()
-		Local bullet:TBulletEntity = New TBulletEntity
-		bullet.SetVelocity(New SVec2F(0, 400))
-		bullet.SetPosition(New SVec2F(self.pos.x, self.pos.y - 10))
-		bullet.emitterID = self.id
-		bullets.AddLast(bullet)
+		GameSignals.EmitSignal(SIGNAL_MOTHERSHIP_FIREBULLET, null, self)
 
 		lastBulletTime = Millisecs()
-	End Method
-
-
-	Method Update:Int(delta:Float) override
-		Super.Update(delta:Float)
-
-		For Local bullet:TBulletEntity = EachIn bullets.Reversed()
-			bullet.Update(delta)
-			if not bullet.alive Then bullets.Remove(bullet)
-		Next
 	End Method
 
 
@@ -304,10 +270,6 @@ Type TMothershipEntity Extends TGameEntity
 		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 30, 10,10)
 		DrawRect(pos.x - size.x/2 + 30, pos.y - size.y/2 + 30, 20,10)
 		DrawRect(pos.x - size.x/2 + 60, pos.y - size.y/2 + 30, 10,10)
-
-		For Local bullet:TGameEntity = EachIn bullets
-			bullet.Render()
-		Next
 
 		SetColor(oldCol)
 	End Method

@@ -13,6 +13,7 @@ Type TGameWorld Extends TGameEntity
 	Field mothership:TMothershipEntity
 	Field mothershipSmartBomb:TGameEntity
 	Field mothershipDrops:TObjectList = New TObjectList
+	Field bullets:TObjectList = New TObjectList
 	'allows to simply iterate over all elements on the screen
 	'do differently if you need to update in an individual order
 	Field allEntities:TObjectList = New TObjectList()
@@ -23,12 +24,31 @@ Type TGameWorld Extends TGameEntity
 
 	
 	Method New()
-		GameSignals.RegisterSignalReceiver(TPlayerEntity.SIGNAL_PLAYER_FIREBULLET, OnPlayerFiresBullet)
+		GameSignals.RegisterSignalReceiver(TPlayerEntity.SIGNAL_PLAYER_FIREBULLET, _OnBulletGetsFired)
+		GameSignals.RegisterSignalReceiver(TMothershipEntity.SIGNAL_MOTHERSHIP_FIREBULLET, _OnBulletGetsFired)
 	End Method
 
-	Function OnPlayerFiresBullet:Int(signalName:String, data:Object, sender:Object)
-		print "player fires bullet"
+
+	Function _OnBulletGetsFired:Int(signalName:String, data:Object, sender:Object)
+		signalReceiver.OnBulletGetsFired(signalName, data, sender)
 	End Function
+
+	Method OnBulletGetsFired:Int(signalName:String, data:Object, sender:Object)
+		Local entity:TGameEntity = TGameEntity(sender)
+		If Not entity Then Return False
+		
+		Local bullet:TBulletEntity = New TBulletEntity
+		bullet.emitterID = entity.id
+		if entity = player
+			bullet.SetVelocity(New SVec2F(0, -400))
+			bullet.SetPosition(New SVec2F(player.pos.x, player.pos.y - player.size.y/2))
+		Elseif entity = mothership
+			bullet.SetVelocity(New SVec2F(0, +400))
+			bullet.SetPosition(New SVec2F(mothership.pos.x, mothership.pos.y + mothership.size.y/2))
+		EndIf
+
+		bullets.AddLast(bullet)
+	End Method
 	
 
 	Method Init()
@@ -58,6 +78,9 @@ Type TGameWorld Extends TGameEntity
 	
 	
 	Method Update:Int(delta:Float) override
+		'update currently handled element
+		signalReceiver = self
+	
 		'player controls ... not done well here!
 		If player
 			If KeyDown(KEY_LEFT)
@@ -90,9 +113,14 @@ Type TGameWorld Extends TGameEntity
 		If mothership
 			mothership.currentDropWallSlot = mothershipDropWall.GetSlot(mothership.pos.x, TBulletEntity.bulletSize.x)
 		EndIf
-		
-		'check bullets (do it here, avoids having bullets to know others)
-		For Local bullet:TBulletEntity = EachIn player.bullets
+
+
+		'update bullets
+		For Local bullet:TBulletEntity = EachIn bullets
+			bullet.Update(delta)
+		Next
+		'check bullet collisions
+		For Local bullet:TBulletEntity = EachIn bullets
 			if bullet.emitterID = player.id 
 				If mothership.IntersectsWith(bullet)
 					bullet.alive = False
@@ -124,12 +152,22 @@ Type TGameWorld Extends TGameEntity
 				continue
 			Endif
 		Next
+		'remove dead bullets
+		For Local bullet:TBulletEntity = EachIn bullets.Reversed()
+			bullet.Update(delta)
+
+			if not bullet.alive Then bullets.Remove(bullet)
+		Next
 	End Method
 	
 	
 	Method Render:Int() override
 		For Local entity:TGameEntity = EachIn backgroundEntities
 			entity.Render()
+		Next
+
+		For Local bullet:TGameEntity = EachIn bullets
+			bullet.Render()
 		Next
 
 		If player Then player.Render()
@@ -143,7 +181,7 @@ Type TGameWorld Extends TGameEntity
 			entity.Render()
 		Next
 		
-		DrawText("Bullets: " + "p="+player.bullets.count() + " m="+mothership.bullets.count(), 10,80)
+		DrawText("Bullets: " + bullets.count(), 10,80)
 		DrawText("Slot: " + mothershipDropWall.GetSlot(player.pos.x, 1), 10,100)
 	End Method
 End Type
