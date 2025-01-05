@@ -7,6 +7,8 @@ Type TGameWorld Extends TGameEntity
 	Field backgroundEntities:TObjectList = New TObjectList
 	'elements in the world foreground (over eg space ships)
 	Field foregroundEntities:TObjectList = New TObjectList
+	
+	Field groundHeight:Int = 30
 
 	Field score:Int
 	Field player:TPlayerEntity
@@ -100,6 +102,16 @@ Type TGameWorld Extends TGameEntity
 	End Method
 	
 	
+	Method AddExplosion(x:Float, y:Float, direction:Int = 1)
+		Local explosion:TExplosionEntity = New TExplosionEntity
+		explosion.SetPosition(x, y)
+		explosion.direction = direction
+		explosion.SetLifetime(0.3) '300 milliseconds
+		
+		backgroundEntities.AddLast(explosion)
+	End Method
+	
+	
 	Method Update:Int(delta:Float) override
 		'update currently handled element
 		signalReceiver = self
@@ -138,6 +150,17 @@ Type TGameWorld Extends TGameEntity
 		EndIf
 
 
+		'update environment
+		For Local e:TGameEntity = EachIn backgroundEntities.Reversed()
+			e.Update(delta)
+			if not e.alive Then backgroundEntities.Remove(e)
+		Next
+		For Local e:TGameEntity = EachIn foregroundEntities.Reversed()
+			e.Update(delta)
+			if not e.alive Then foregroundEntities.Remove(e)
+		Next
+
+
 		'update bullets
 		For Local bullet:TBulletEntity = EachIn bullets
 			bullet.Update(delta)
@@ -164,33 +187,45 @@ Type TGameWorld Extends TGameEntity
 			If mothershipDropWall.IntersectsWith(bullet)
 				'wall hit?
 				If Not mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
+					if bullet.emitterID = player.id
+						AddExplosion(bullet.pos.x, mothershipDropWall.pos.y + mothershipDropWall.size.y/2, 2)
+					EndIf
+
 					mothershipDropWall.OnGetHit(bullet.emitterID)
 					bullet.alive = False
 				EndIf
 				continue
 			EndIf
 			
-			'bullet too high or low (above mothership or below player)
-			If bullet.pos.y < mothership.pos.y - mothership.size.y
-				'boom on the ground
+			'bullet too high or low (above mothership or below player
+			'so above ground)
+			If bullet.pos.y + bullet.size.y/2 < mothership.pos.y - mothership.size.y/2
+				AddExplosion(bullet.pos.x, pos.y, 2)
 				bullet.alive = False
 				continue
-			ElseIf bullet.pos.y > player.pos.y + player.size.y
-				'boom on the ground
+			ElseIf bullet.pos.y + bullet.size.y/2 > pos.y + size.y - self.groundHeight 'player.pos.y + player.size.y/2
+				AddExplosion(bullet.pos.x, pos.y + size.y - self.groundHeight)
 				bullet.alive = False
 				continue
 			Endif
 		Next
 		'remove dead bullets
 		For Local bullet:TBulletEntity = EachIn bullets.Reversed()
-			bullet.Update(delta)
-
 			if not bullet.alive Then bullets.Remove(bullet)
 		Next
 	End Method
 	
 	
 	Method Render:Int() override
+		Local oldCol:SColor8; GetColor(oldCol)
+		'render ground (should this become an own entity or should
+		'ground elements ("decoration") just be backgroundEntities here?)
+		SetColor 85,160,80
+		DrawRect(0, pos.y + size.y - groundHeight, size.x, groundHeight)
+
+		SetColor(oldCol)
+		
+	
 		For Local entity:TGameEntity = EachIn backgroundEntities
 			entity.Render()
 		Next
@@ -210,8 +245,8 @@ Type TGameWorld Extends TGameEntity
 			entity.Render()
 		Next
 		
-		DrawText("Bullets: " + bullets.count(), 10,80)
-		DrawText("Lane: " + mothershipDropWall.GetLaneNumber(player.pos.x, 1), 10,100)
-		DrawText("LaneMX: " + mothershipDropWall.GetLaneNumber(MouseX(), 1) + "  intersects="+mothershipDropWall.IntersectsWith(MouseX(), MouseY(), 1, 1), 10,120)
+		'DrawText("Bullets: " + bullets.count(), 10,80)
+		'DrawText("Lane: " + mothershipDropWall.GetLaneNumber(player.pos.x, 1), 10,100)
+		'DrawText("LaneMX: " + mothershipDropWall.GetLaneNumber(MouseX(), 1) + "  intersects="+mothershipDropWall.IntersectsWith(MouseX(), MouseY(), 1, 1), 10,120)
 	End Method
 End Type

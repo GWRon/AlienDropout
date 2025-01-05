@@ -57,6 +57,7 @@ Type TGameEntity
 	Field velocity:SVec2f
 	Field hitable:Int = False
 	Field destroyable:Int = False
+	Field alive:Int = True
 	
 	Field id:Int
 	Global _lastID:Int
@@ -172,7 +173,6 @@ End Type
 Type TBulletEntity Extends TGameEntity
 	Field emitterID:Int
 	Field hitID:Int
-	Field alive:Int = True
 	Global bulletSize:Svec2I = New SVec2I(8,8)
 	
 	Method New()
@@ -413,6 +413,87 @@ Type TMothershipDropWallEntity Extends TGameEntity
 		For local i:int = 0 until 14
 			DrawRect(self.pos.x + wallsCenterPos[i].x, self.pos.y + wallsCenterPos[i].y, wallWidth, wallHeight)
 		Next
+
+		SetColor(oldCol)
+	End Method
+End Type
+
+
+
+Type TExplosionEntity Extends TGameEntity
+	Field lifetimeStart:Float
+	Field lifetime:Float
+	Field direction:Int = 1 '1=up, 2=down
+	
+	Method SetLifetime(lifetime:Float)
+		self.lifetime = lifetime
+		self.lifetimeStart = lifetime
+	End Method
+
+
+	Method Update:Int(delta:Float) override
+		self.lifetime :- delta
+		if self.lifetime <= 0.001 then alive = False
+
+		Return Super.Update(delta)
+	End Method
+	
+
+	Method Render:Int() override
+		Local oldCol:SColor8; GetColor(oldCol)
+
+		Local explosionStep:Int = trunc((1.0 - lifetime/lifetimeStart) * 3 + 0.5) '0 to 5
+
+		Select explosionStep
+			Case 0
+				SetColor 250,150,50
+			
+			Case 1
+				SetColor 220,220,100
+
+			Case 2
+				SetColor 200,200,100
+
+			Case 3
+				SetColor 150, 100,50
+		End Select
+
+		'for upwards anchor point is "center, bottom"
+		'for downwards anchor point is "center, top"
+		Select explosionStep
+			Case 0, 3
+				If direction = 1
+					DrawRect(self.pos.x - 5, self.pos.y - 10, 10, 10)
+				Else
+					DrawRect(self.pos.x - 5, self.pos.y, 10, 10)
+				EndIf
+			Case 1
+				If direction = 1
+					DrawRect(self.pos.x - 5, self.pos.y - 20, 10, 10)
+					DrawRect(self.pos.x - 15, self.pos.y - 10, 30, 10)
+				Else
+					DrawRect(self.pos.x - 15, self.pos.y, 30, 10)
+					DrawRect(self.pos.x - 5, self.pos.y + 10, 10, 10)
+				EndIf
+			Case 2
+				If direction = 1
+					DrawRect(self.pos.x - 5, self.pos.y - 30, 10, 10)
+
+					DrawRect(self.pos.x - 15, self.pos.y - 20, 10, 10)
+					DrawRect(self.pos.x +  5, self.pos.y - 20, 10, 10)
+
+					DrawRect(self.pos.x - 25, self.pos.y - 10, 10, 10)
+					DrawRect(self.pos.x + 15, self.pos.y - 10, 10, 10)
+				Else
+					DrawRect(self.pos.x - 25, self.pos.y, 10, 10)
+					DrawRect(self.pos.x + 15, self.pos.y, 10, 10)
+
+					DrawRect(self.pos.x - 15, self.pos.y + 10, 10, 10)
+					DrawRect(self.pos.x +  5, self.pos.y + 10, 10, 10)
+
+					DrawRect(self.pos.x - 5, self.pos.y + 20, 10, 10)
+				EndIf
+		End Select
 
 		SetColor(oldCol)
 	End Method
