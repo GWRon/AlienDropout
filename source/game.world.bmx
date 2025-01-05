@@ -63,12 +63,12 @@ Type TGameWorld Extends TGameEntity
 		allEntities.Clear()
 		
 		player = new TPlayerEntity()
-		player.SetPosition(pos.x / 2.0, pos.y + size.y - 40)
+		player.SetPosition(pos.x + size.x / 2.0, pos.y + size.y - 40)
 		player.SetPositionLimits(New SRectI(Int(pos.x + 45), Int(player.pos.y), Int(pos.x + size.x - 90), 0), True)
 		player.SetSize(60, 20)
 
 		mothership = new TMothershipEntity()
-		mothership.SetPosition(pos.x / 2.0, pos.y + 20)
+		mothership.SetPosition(pos.x + size.x / 2.0, pos.y + 20)
 		mothership.SetPositionLimits(New SRectI(Int(pos.x + 30), Int(mothership.pos.y), Int(pos.x + size.x - 60), 0), True)
 		mothership.SetVelocity(New SVec2F(+300, 0))
 		mothership.SetSize(80, 40)
@@ -84,6 +84,13 @@ Type TGameWorld Extends TGameEntity
 		allEntities.AddLast(mothership)
 
 		GameSignals.EmitSignal(SIGNAL_GAMEWORLD_INITIALIZED, null, self)
+	End Method
+	
+
+	Method ResetLevel()
+		player.SetPosition(pos.x + size.x / 2.0, pos.y + size.y - 40)
+		mothership.SetPosition(pos.x + size.x / 2.0, pos.y + 20)
+		bullets.Clear()
 	End Method
 	
 	
@@ -147,6 +154,8 @@ Type TGameWorld Extends TGameEntity
 			ElseIf bullet.emitterID = mothership.id
 				If player.IntersectsWith(bullet)
 					player.OnGetHit(bullet.emitterID)
+					'start level again?
+					ResetLevel()
 					bullet.alive = False
 					continue
 				EndIf

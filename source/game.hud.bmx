@@ -52,7 +52,9 @@ Type TGameHUD Extends TGameEntity
 		DrawRect(area.x, area.y, area.w, area.h)
 		
 		SetColor 100,100,100
+		SetScale 2,2
 		DrawText("Score: " + scoreToDraw, area.x + 10, area.y + 5)
+		SetScale 1,1
 
 		SetColor(oldCol)
 	End Method
