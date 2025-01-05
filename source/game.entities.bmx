@@ -113,7 +113,8 @@ Type TGameEntity
 		
 	
 	Method IntersectsWith:Int(e:TGameEntity)
-		Return IntersectsWith(e.pos.x, e.pos.y, e.size.x, e.size.y)
+		'entities are "centered"
+		Return IntersectsWith(e.pos.x - e.size.x/2, e.pos.y - e.size.y/2, e.size.x, e.size.y)
 	End Method
 
 	Method IntersectsWith:Int(area:SRectI)
@@ -122,10 +123,10 @@ Type TGameEntity
 
 	Method IntersectsWith:Int(x:Float, y:Float, w:Float, h:Float)
 		'AABB approach
-		Return Not (x + w <= self.pos.x Or ..
-					x >= self.pos.x + self.size.x Or ..
-					y + h <= self.pos.y Or ..
-					y >= self.pos.y + self.size.y ..
+		Return Not (x + w <= self.pos.x - self.size.x/2 Or ..
+					x >= self.pos.x + self.size.x/2 Or ..
+					y + h <= self.pos.y - self.size.y/2 Or ..
+					y >= self.pos.y + self.size.y/2 ..
 				)
 	End Method
 
@@ -247,7 +248,7 @@ Type TMothershipEntity Extends TGameEntity
 
 	Global SIGNAL_MOTHERSHIP_FIREBULLET:ULong = GameSignals.RegisterSignal("mothership.firebullet")
 	Global SIGNAL_MOTHERSHIP_GOTHIT:ULong = GameSignals.RegisterSignal("mothership.gothit")
-
+ 
 	Method FireBullet()
 		GameSignals.EmitSignal(SIGNAL_MOTHERSHIP_FIREBULLET, null, self)
 
@@ -319,18 +320,18 @@ End Type
 
 
 Type TMothershipDropWallEntity Extends TGameEntity
-	Field wallCount:Int = 14
-	Field wallOffsetX:Int = 40
-	Field wallsPos:SVec2F[14]
+	'center position of walls inside of the entity (local positions) 
+	Field wallsCenterPos:SVec2F[]
 	Field wallWidth:Int = 24
 	Field wallHeight:Int = 100
 	Field dropLaneCount:Int = 12    ' how many drop lane
 	Field dropLaneLevels:Int = 5    ' how many levels each drop lane has 
 	Field dropLaneWidth:Int = 24
 	Field dropLanes:TMothershipDropLaneEntity[]
-	Field bombSlotWidth:Int
+	Field bombSlotWidth:Int = 96
 	
 	Method New()
+		wallsCenterPos = New SVec2F[dropLaneCount + 2]
 		' prepare slot array so all can "fit in"
 		dropLanes = new TMothershipDropLaneEntity[dropLaneCount]
 		For local i:Int = 0 until dropLanes.length
@@ -344,41 +345,50 @@ Type TMothershipDropWallEntity Extends TGameEntity
 		Super.SetSize(x, y)
 		
 		'knowing the size we can now align stuff
-		bombSlotWidth = size.x - 2*wallOffsetX - 14*wallWidth - 12*dropLaneWidth
 		wallHeight = size.y
 		
+		local halfWidth:Int = (wallsCenterPos.length * wallWidth + dropLaneCount * dropLaneWidth + bombSlotWidth) / 2
 		For local i:int = 0 until 7
-			wallsPos[i] = New SVec2F(wallOffsetX + pos.x + i*(wallWidth + dropLaneWidth), wallHeight)
+			wallsCenterPos[i] = New SVec2F(-halfWidth + i * (wallWidth + dropLaneWidth), -wallHeight/2)
 		Next
 		For local i:int = 0 until 7
-			wallsPos[i+7] = New SVec2F(wallsPos[6].x + bombSlotWidth + i*(wallWidth + dropLaneWidth) + wallWidth, wallHeight)
+			wallsCenterPos[i+7] = New SVec2F(bombSlotWidth/2 + i*(wallWidth + dropLaneWidth), -wallHeight/2)
 		Next
 	End Method
 
 
 	Method IntersectsWith:Int(x:Float, y:Float, w:Float, h:Float) override
+		'FOR NOW wall entity is "top left" aligned
+		
 		'before doing fine grained checks, we check the bounding box
 		If Not Super.IntersectsWith(x,y,w,h) Then Return False
 
+		'make coords local to "top left" to calculate positions in only once
+		x :- (self.pos.x - self.size.x/2)
+		y :- (self.pos.y - self.size.y/2)
+
 		'check y once and then only x'es (as there are more variants)
-		if y + h < pos.y Then Return False
-		if y > pos.y + size.y Then Return False
+		if y + h < 0 Then Return False
+		if y > self.size.y Then Return False
 
 		'left or right of wall
-		if x + w < pos.x + 40 Then Return False
-		if x > pos.x + size.x Then Return False
+		if x + w < self.wallsCenterPos[0].x - self.wallWidth Then Return False
+		if x > self.size.x Then Return False
 		'right of left wall and left of right wall (aka in the middle)
-		if x > wallsPos[6].x + wallWidth and x + w < wallsPos[7].x Then Return False
+		if x > wallsCenterPos[6].x + wallWidth and x + w < wallsCenterPos[7].x Then Return False
 		
 		Return True
 	End Method
 	
 	
 	Method GetLaneNumber:Int(x:Float, width:Int)
+		'make x local to "top left" to calculate it only once
+		x :- (self.pos.x)
+
 		Local xL:Int = x - width/2
 		Local xR:Int = x + width/2
 		For local i:Int = 1 until 14
-			if xL > wallsPos[i-1].x + wallWidth and xR < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
+			if xL > wallsCenterPos[i-1].x + wallWidth and xR < wallsCenterPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
 		Next
 		Return 0
 	End Method
@@ -401,9 +411,9 @@ Type TMothershipDropWallEntity Extends TGameEntity
 
 		SetColor 100, 200, 255
 		For local i:int = 0 until 14
-			DrawRect(wallsPos[i].x, wallsPos[i].y, wallWidth, wallHeight)
+			DrawRect(self.pos.x + wallsCenterPos[i].x, self.pos.y + wallsCenterPos[i].y, wallWidth, wallHeight)
 		Next
-		
+
 		SetColor(oldCol)
 	End Method
 End Type

@@ -71,7 +71,7 @@ Type TGameWorld Extends TGameEntity
 		mothership.SetSize(80, 40)
 
 		mothershipDropWall = New TMothershipDropWallEntity()
-		mothershipDropWall.SetPosition(pos.x, 100)
+		mothershipDropWall.SetPosition(pos.x + size.x/2, 100 + 100/2)
 		mothershipDropWall.SetSize(size.x, 100)
 
 		foregroundEntities.AddLast(mothershipDropWall)
@@ -191,5 +191,6 @@ Type TGameWorld Extends TGameEntity
 		
 		DrawText("Bullets: " + bullets.count(), 10,80)
 		DrawText("Lane: " + mothershipDropWall.GetLaneNumber(player.pos.x, 1), 10,100)
+		DrawText("LaneMX: " + mothershipDropWall.GetLaneNumber(MouseX(), 1) + "  intersects="+mothershipDropWall.IntersectsWith(MouseX(), MouseY(), 1, 1), 10,120)
 	End Method
 End Type
