@@ -8,6 +8,7 @@ Type TGameWorld Extends TGameEntity
 	'elements in the world foreground (over eg space ships)
 	Field foregroundEntities:TObjectList = New TObjectList
 
+	Field score:Int
 	Field player:TPlayerEntity
 	Field mothershipDropWall:TMothershipDropWallEntity
 	Field mothership:TMothershipEntity
@@ -23,6 +24,8 @@ Type TGameWorld Extends TGameEntity
 	Global signalReceiver:TGameWorld
 
 	Global SIGNAL_ENTITY_GOTHIT:ULong = GameSignals.RegisterSignal("entity.gothit")
+	Global SIGNAL_GAMEWORLD_SCORECHANGED:ULong = GameSignals.RegisterSignal("gameworld.scorechanged")
+	Global SIGNAL_GAMEWORLD_INITIALIZED:ULong = GameSignals.RegisterSignal("gameworld.initialized")
 
 	
 	Method New()
@@ -79,6 +82,14 @@ Type TGameWorld Extends TGameEntity
 		allEntities.AddLast(mothershipDropWall)
 		allEntities.AddLast(player)
 		allEntities.AddLast(mothership)
+
+		GameSignals.EmitSignal(SIGNAL_GAMEWORLD_INITIALIZED, null, self)
+	End Method
+	
+	
+	Method ChangeScore(value:Int)
+		self.score :+ value
+		GameSignals.EmitSignal(SIGNAL_GAMEWORLD_SCORECHANGED, string(value), self)
 	End Method
 	
 	
@@ -129,6 +140,7 @@ Type TGameWorld Extends TGameEntity
 			if bullet.emitterID = player.id 
 				If mothership.IntersectsWith(bullet)
 					mothership.OnGetHit(bullet.emitterID)
+					ChangeScore(+100)
 					bullet.alive = False
 					continue
 				EndIf
