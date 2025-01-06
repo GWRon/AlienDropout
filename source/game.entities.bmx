@@ -146,7 +146,8 @@ Type TGameEntity
 	
 	Method IntersectsWith:Int(e:TGameEntity)
 		'entities are "centered"
-		Return IntersectsWith(e.pos.x - e.size.x/2, e.pos.y - e.size.y/2, e.size.x, e.size.y)
+		Local worldPos:SVec2F = e.GetPosition()
+		Return IntersectsWith(worldPos.x - e.size.x/2, worldPos.y - e.size.y/2, e.size.x, e.size.y)
 	End Method
 
 	Method IntersectsWith:Int(area:SRectI)
@@ -154,11 +155,12 @@ Type TGameEntity
 	End Method
 
 	Method IntersectsWith:Int(x:Float, y:Float, w:Float, h:Float)
+		Local worldPos:SVec2F = GetPosition()
 		'AABB approach
-		Return Not (x + w <= self.pos.x - self.size.x/2 Or ..
-					x >= self.pos.x + self.size.x/2 Or ..
-					y + h <= self.pos.y - self.size.y/2 Or ..
-					y >= self.pos.y + self.size.y/2 ..
+		Return Not (x + w <= worldPos.x - self.size.x/2 Or ..
+					x >= worldPos.x + self.size.x/2 Or ..
+					y + h <= worldPos.y - self.size.y/2 Or ..
+					y >= worldPos.y + self.size.y/2 ..
 				)
 	End Method
 
@@ -225,8 +227,9 @@ Type TBulletEntity Extends TGameEntity
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 200, 255, 255
+		local worldPos:SVec2F = GetPosition()
 		'pos is "middle"
-		DrawRect(pos.x - size.x/2, pos.y - size.y/2, size.x, size.y)
+		DrawRect(worldPos.x - size.x/2, worldPos.y - size.y/2, size.x, size.y)
 
 		SetColor(oldCol)
 	End Method
@@ -261,9 +264,10 @@ Type TPlayerEntity Extends TGameEntity
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 200, 200, 255
+		local worldPos:SVec2F = GetPosition()
 		'pos is "middle"
-		DrawRect(pos.x -10, pos.y -10, 20,10)
-		DrawRect(pos.x -30, pos.y, 60,10)
+		DrawRect(worldPos.x -10, worldPos.y -10, 20,10)
+		DrawRect(worldPos.x -30, worldPos.y, 60,10)
 
 		SetColor(oldCol)
 	End Method
@@ -319,13 +323,14 @@ Type TMothershipEntity Extends TGameEntity
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 255, 100, 100
+		local worldPos:SVec2F = GetPosition()
 		'pos is "middle"
-		DrawRect(pos.x - size.x/2, pos.y - size.y/2, 80,10)
-		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 10, 60,10)
-		DrawRect(pos.x - size.x/2, pos.y - size.y/2 + 20, 80,10)
-		DrawRect(pos.x - size.x/2 + 10, pos.y - size.y/2 + 30, 10,10)
-		DrawRect(pos.x - size.x/2 + 30, pos.y - size.y/2 + 30, 20,10)
-		DrawRect(pos.x - size.x/2 + 60, pos.y - size.y/2 + 30, 10,10)
+		DrawRect(worldPos.x - size.x/2, worldPos.y - size.y/2, 80,10)
+		DrawRect(worldPos.x - size.x/2 + 10, worldPos.y - size.y/2 + 10, 60,10)
+		DrawRect(worldPos.x - size.x/2, worldPos.y - size.y/2 + 20, 80,10)
+		DrawRect(worldPos.x - size.x/2 + 10, worldPos.y - size.y/2 + 30, 10,10)
+		DrawRect(worldPos.x - size.x/2 + 30, worldPos.y - size.y/2 + 30, 20,10)
+		DrawRect(worldPos.x - size.x/2 + 60, worldPos.y - size.y/2 + 30, 10,10)
 
 		SetColor(oldCol)
 	End Method
@@ -465,6 +470,8 @@ Type TMothershipDropWallEntity Extends TGameEntity
 			dropLanes[i].SetParent(self) 'position relatively
 			dropLanes[i].SetSize(dropLaneWidth, wallHeight)
 		Next
+
+		lastDropTime = Millisecs()
 	End Method
 	
 
@@ -496,10 +503,12 @@ Type TMothershipDropWallEntity Extends TGameEntity
 		
 		'before doing fine grained checks, we check the bounding box
 		If Not Super.IntersectsWith(x,y,w,h) Then Return False
+		
+		Local worldPos:SVec2F = GetPosition()
 
 		'make coords local to "center" to calculate positions in only once
-		x :- (self.pos.x)
-		y :- (self.pos.y)
+		x :- (worldPos.x)
+		y :- (worldPos.y)
 
 		Local wallY:Int = self.wallsPos[0].y
 		'check y once and then only x'es (as there are more variants)
@@ -526,9 +535,6 @@ Type TMothershipDropWallEntity Extends TGameEntity
 			if xL > dropLanes[i].pos.x and xR < dropLanes[i].pos.x + dropLanes[i].size.x Then Return i+1
 		Next
 
-'		For local i:Int = 1 until 14
-'			if xL > wallsPos[i-1].x + wallWidth and xR < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
-'		Next
 		Return 0
 	End Method
 
@@ -559,7 +565,7 @@ Type TMothershipDropWallEntity Extends TGameEntity
 	Method FireBullet()
 		Local lane:TMothershipDropLaneEntity = GetLane(nextDropLane)
 		if not lane or lane.GetLevel() = 0 Then Return
-print "Firebullet" + nextDropLane
+
 		GameSignals.EmitSignal(SIGNAL_MOTHERSHIPDROPWALL_FIREBULLET, String(nextDropLane), self)
 		
 		lane.SetLevel(lane.GetLevel() - 1)
@@ -597,8 +603,9 @@ print "Firebullet" + nextDropLane
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 100, 200, 255
+		Local worldPos:SVec2F = GetPosition()
 		For local i:int = 0 until 14
-			DrawRect(self.pos.x + wallsPos[i].x, self.pos.y + wallsPos[i].y, wallWidth, wallHeight)
+			DrawRect(worldPos.x + wallsPos[i].x, worldPos.y + wallsPos[i].y, wallWidth, wallHeight)
 		Next
 		SetColor(oldCol)
 		
@@ -651,38 +658,39 @@ Type TExplosionEntity Extends TGameEntity
 
 		'for upwards anchor point is "center, bottom"
 		'for downwards anchor point is "center, top"
+		Local worldPos:SVec2F = GetPosition()
 		Select explosionStep
 			Case 0, 3
 				If direction = 1
-					DrawRect(self.pos.x - 5, self.pos.y - 10, 10, 10)
+					DrawRect(worldPos.x - 5, worldPos.y - 10, 10, 10)
 				Else
-					DrawRect(self.pos.x - 5, self.pos.y, 10, 10)
+					DrawRect(worldPos.x - 5, worldPos.y, 10, 10)
 				EndIf
 			Case 1
 				If direction = 1
-					DrawRect(self.pos.x - 5, self.pos.y - 20, 10, 10)
-					DrawRect(self.pos.x - 15, self.pos.y - 10, 30, 10)
+					DrawRect(worldPos.x - 5, worldPos.y - 20, 10, 10)
+					DrawRect(worldPos.x - 15, worldPos.y - 10, 30, 10)
 				Else
-					DrawRect(self.pos.x - 15, self.pos.y, 30, 10)
-					DrawRect(self.pos.x - 5, self.pos.y + 10, 10, 10)
+					DrawRect(worldPos.x - 15, worldPos.y, 30, 10)
+					DrawRect(worldPos.x - 5, worldPos.y + 10, 10, 10)
 				EndIf
 			Case 2
 				If direction = 1
-					DrawRect(self.pos.x - 5, self.pos.y - 30, 10, 10)
+					DrawRect(worldPos.x - 5, worldPos.y - 30, 10, 10)
 
-					DrawRect(self.pos.x - 15, self.pos.y - 20, 10, 10)
-					DrawRect(self.pos.x +  5, self.pos.y - 20, 10, 10)
+					DrawRect(worldPos.x - 15, worldPos.y - 20, 10, 10)
+					DrawRect(worldPos.x +  5, worldPos.y - 20, 10, 10)
 
-					DrawRect(self.pos.x - 25, self.pos.y - 10, 10, 10)
-					DrawRect(self.pos.x + 15, self.pos.y - 10, 10, 10)
+					DrawRect(worldPos.x - 25, worldPos.y - 10, 10, 10)
+					DrawRect(worldPos.x + 15, worldPos.y - 10, 10, 10)
 				Else
-					DrawRect(self.pos.x - 25, self.pos.y, 10, 10)
-					DrawRect(self.pos.x + 15, self.pos.y, 10, 10)
+					DrawRect(worldPos.x - 25, worldPos.y, 10, 10)
+					DrawRect(worldPos.x + 15, worldPos.y, 10, 10)
 
-					DrawRect(self.pos.x - 15, self.pos.y + 10, 10, 10)
-					DrawRect(self.pos.x +  5, self.pos.y + 10, 10, 10)
+					DrawRect(worldPos.x - 15, worldPos.y + 10, 10, 10)
+					DrawRect(worldPos.x +  5, worldPos.y + 10, 10, 10)
 
-					DrawRect(self.pos.x - 5, self.pos.y + 20, 10, 10)
+					DrawRect(worldPos.x - 5, worldPos.y + 20, 10, 10)
 				EndIf
 		End Select
 		

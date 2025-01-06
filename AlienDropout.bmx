@@ -25,10 +25,7 @@ Function AppUpdate:Int()
 	
 	Select gameScreen
 		case EGameScreens.Start
-			'for now: init new game and move to game
-			StartGame()
-			gameScreen = EGameScreens.Game
-		
+			ScreenTitleUpdate()
 		case EGameScreens.Game
 			ScreenGameUpdate()
 	End Select
@@ -39,6 +36,8 @@ Function AppRender:Int()
 	SetColor 255,255,255
 
 	Select gameScreen
+		case EGameScreens.Start
+			ScreenTitleRender()
 		case EGameScreens.Game
 			ScreenGameRender()
 	End Select
@@ -63,6 +62,54 @@ Function StartGame:Int()
 
 	gameScreenEntities.AddLast(gameWorld)
 	gameScreenEntities.AddLast(gameHUD)
+End Function
+
+
+Function ScreenTitleUpdate:Int()
+	If KeyHit(KEY_SPACE)
+		Repeat 
+			delay(1)
+		Until not KeyDown(KEY_SPACE)
+		'for now: init new game and move to game
+		StartGame()
+		gameScreen = EGameScreens.Game
+	EndIf
+End Function
+
+
+Function ScreenTitleRender:Int()
+	Global title:String = """
+*
+     *        _    ___ ____ _   _        *
+          /\  |     |  |__  |\  |
+         /__\ |     |  |    | \ |  *
+         |  | |__/ _|_ |___ |  \|
+*
+ ___   ___     __   ___    __         _____
+ |  \  |  \   /  \  |  \  /  \  T   T   |     *
+ |   | |__/  | *  | |__/ |    | |   |   |  
+ |   | | \   |    | |    |    | |*  |   |  
+ |__/  |  \_  \__/  |     \__/  \___/   |  *
+	"""
+	Global titles:String[] = title.Split("~n")
+
+	Local oldCol:SColor8; GetColor(oldCol)
+	'SetColor 50,50,90
+	SetColor 0,0,0
+	DrawRect(0, 0, APP_WIDTH, APP_HEIGHT)
+	SetColor 200,200,200
+	
+	SetScale(2,2)
+	For local i:int = 0 until titles.length
+		DrawText(titles[i], 40, 100 + i * 30)
+	Next
+                                           
+	Local s:String = "Hit [SPACE] to start."
+	'*2 because of scale!
+	DrawText(s, (APP_WIDTH - TEXTWIDTH(s)*2)/2, APP_HEIGHT - 50)
+
+	SetScale(1,1)
+ 
 End Function
 
 

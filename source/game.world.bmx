@@ -50,9 +50,9 @@ Type TGameWorld Extends TGameEntity
 		if entity = player
 			bullet = New TBulletEntity
 			bullet.SetEmitter(entity.id)
-			bullet.emitterID = entity.id
 			bullet.SetVelocity(New SVec2F(0, -400))
 			bullet.SetPosition(player.pos.x, player.pos.y - player.size.y/2)
+			bullet.SetSize(10, 10)
 		Elseif entity = mothership
 			bullet = New TBulletEntity
 			bullet.SetEmitter(entity.id)
@@ -65,9 +65,9 @@ Type TGameWorld Extends TGameEntity
 			if lane
 				bullet = New TMothershipDropEntity
 				bullet.SetEmitter(mothershipDropWall.id) 'other emitter
-				bullet.SetVelocity(New SVec2F(0, +400))
-				bullet.SetPosition(lane.GetPosition().x + lane.size.x/2, lane.GetPosition().y + lane.size.y/2)
+				bullet.SetVelocity(New SVec2F(0, 400))
 				bullet.SetSize(lane.size.x, 20)
+				bullet.SetPosition(lane.GetPosition().x + lane.size.x/2, lane.GetPosition().y + lane.size.y/2 - bullet.size.y/2)
 			EndIf
 		Else
 			Throw "OnBulletGetsFired with unsupported entity type"
@@ -83,19 +83,22 @@ Type TGameWorld Extends TGameEntity
 		allEntities.Clear()
 		
 		player = new TPlayerEntity()
-		player.SetPosition(pos.x + size.x / 2.0, pos.y + size.y - 40)
-		player.SetPositionLimits(New SRectI(Int(pos.x + 45), Int(player.pos.y), Int(pos.x + size.x - 90), 0), True)
 		player.SetSize(60, 20)
+		player.SetPosition(size.x / 2.0, size.y - groundHeight - player.size.y/2)
+		player.SetPositionLimits(New SRectI(Int(pos.x + 45), Int(player.pos.y), Int(pos.x + size.x), 0), True)
+		player.SetParent(self)
 
 		mothership = new TMothershipEntity()
-		mothership.SetPosition(pos.x + size.x / 2.0, pos.y + 20)
+		mothership.SetSize(80, 40)
+		mothership.SetPosition(size.x / 2.0, mothership.size.y/2)
 		mothership.SetPositionLimits(New SRectI(Int(pos.x + 30), Int(mothership.pos.y), Int(pos.x + size.x - 60), 0), True)
 		mothership.SetVelocity(New SVec2F(+300, 0))
-		mothership.SetSize(80, 40)
+		mothership.SetParent(self)
 
 		mothershipDropWall = New TMothershipDropWallEntity()
-		mothershipDropWall.SetPosition(pos.x + size.x/2, 120 + 110/2)
+		mothershipDropWall.SetPosition(size.x/2, 110)
 		mothershipDropWall.SetSize(size.x, 110)
+		mothershipDropWall.SetParent(self)
 
 		foregroundEntities.AddLast(mothershipDropWall)
 
@@ -120,11 +123,15 @@ Type TGameWorld Extends TGameEntity
 	End Method
 	
 	
-	Method AddExplosion(x:Float, y:Float, direction:Int = 1)
+	Method AddExplosion(worldX:Float, worldY:Float, direction:Int = 1)
+		'make local
+		Local x:Float = worldX - pos.x
+		Local y:Float = worldY - pos.y
 		Local explosion:TExplosionEntity = New TExplosionEntity
 		explosion.SetPosition(x, y)
 		explosion.direction = direction
 		explosion.SetLifetime(0.3) '300 milliseconds
+		explosion.SetParent(self)
 		
 		backgroundEntities.AddLast(explosion)
 	End Method
@@ -183,6 +190,8 @@ Type TGameWorld Extends TGameEntity
 		For Local bullet:TBulletEntity = EachIn bullets
 			bullet.Update(delta)
 		Next
+		
+		Local worldPos:SVec2F = GetPosition()
 		'check bullet collisions
 		For Local bullet:TBulletEntity = EachIn bullets
 			if bullet.emitterID = player.id 
@@ -192,7 +201,7 @@ Type TGameWorld Extends TGameEntity
 					bullet.alive = False
 					continue
 				EndIf
-			ElseIf bullet.emitterID = mothership.id
+			Else
 				If player.IntersectsWith(bullet)
 					player.OnGetHit(bullet.emitterID)
 					'start level again?
@@ -204,12 +213,12 @@ Type TGameWorld Extends TGameEntity
 
 			If bullet.emitterID <> mothershipDropWall.id and mothershipDropWall.IntersectsWith(bullet)
 				'wall or lane hit?
-				Local laneNumber:Int = mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
+				Local laneNumber:Int = mothershipDropWall.GetLaneNumber(bullet.GetPosition().x, bullet.size.x/2)
 
 				'hit the wall
 				If not laneNumber
 					if bullet.emitterID = player.id
-						AddExplosion(bullet.pos.x, mothershipDropWall.pos.y + mothershipDropWall.size.y/2, 2)
+						AddExplosion(bullet.GetPosition().x, mothershipDropWall.GetPosition().y + mothershipDropWall.size.y/2, 2)
 					EndIf
 
 					mothershipDropWall.OnGetHit(bullet.emitterID)
@@ -227,7 +236,7 @@ Type TGameWorld Extends TGameEntity
 						Local laneLevel:Int = mothershipDropWall.GetLane(laneNumber).GetLevel()
 						If laneLevel > 0
 							ChangeScore(+50)
-							AddExplosion(bullet.pos.x, mothershipDropWall.pos.y + mothershipDropWall.size.y/2, 2)
+							AddExplosion(bullet.GetPosition().x, mothershipDropWall.GetPosition().y + mothershipDropWall.size.y/2, 2)
 							mothershipDropWall.GetLane(laneNumber).SetLevel(laneLevel - 1)
 							bullet.alive = False
 						EndIf
@@ -238,12 +247,12 @@ Type TGameWorld Extends TGameEntity
 			
 			'bullet too high or low (above mothership or below player
 			'so above ground)
-			If bullet.pos.y + bullet.size.y/2 < mothership.pos.y - mothership.size.y/2
-				AddExplosion(bullet.pos.x, pos.y, 2)
+			If bullet.GetPosition().y + bullet.size.y/2 < mothership.GetPosition().y - mothership.size.y/2
+				AddExplosion(bullet.GetPosition().x, GetPosition().y, 2)
 				bullet.alive = False
 				continue
-			ElseIf bullet.emitterID <> player.ID and bullet.pos.y + bullet.size.y/2 > size.y - self.groundHeight 'player.pos.y + player.size.y/2
-				AddExplosion(bullet.pos.x, pos.y + size.y - self.groundHeight)
+			ElseIf bullet.emitterID <> player.ID and bullet.GetPosition().y + bullet.size.y/2 > GetPosition().y + size.y - self.groundHeight 'player.pos.y + player.size.y/2
+				AddExplosion(bullet.GetPosition().x, GetPosition().y + size.y - self.groundHeight)
 				bullet.alive = False
 				continue
 			Endif
@@ -258,8 +267,8 @@ Type TGameWorld Extends TGameEntity
 					If otherBullet.IntersectsWith(bullet)
 						ChangeScore(+20)
 						'both explosion styles -> "circle"
-						AddExplosion(bullet.pos.x, bullet.pos.y + bullet.size.y, 1)
-						AddExplosion(bullet.pos.x, bullet.pos.y + bullet.size.y, 2)
+						AddExplosion(bullet.GetPosition().x, bullet.GetPosition().y + bullet.size.y, 1)
+						AddExplosion(bullet.GetPosition().x, bullet.GetPosition().y + bullet.size.y, 2)
 						otherBullet.alive = False
 						bullet.alive = False
 						Continue
@@ -305,6 +314,7 @@ Type TGameWorld Extends TGameEntity
 		
 		'DrawText("Bullets: " + bullets.count(), 10,80)
 		'DrawText("Lane: " + mothershipDropWall.GetLaneNumber(player.pos.x, 1), 10,100)
-		'DrawText("LaneMX: " + mothershipDropWall.GetLaneNumber(MouseX(), 1) + "  intersects="+mothershipDropWall.IntersectsWith(MouseX(), MouseY(), 1, 1), 10,120)
+		'DrawText("LaneMX: " + mothershipDropWall.GetLaneNumber(MouseX(), 1) + "  intersects="+mothershipDropWall.IntersectsWith(MouseX(), MouseY(), 1, 1) + " mouseY="+MouseY(), 10,120)
+		'DrawText("Mouse: " + MouseX()+","+MouseY(), 10,120)
 	End Method
 End Type
