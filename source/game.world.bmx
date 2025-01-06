@@ -33,6 +33,7 @@ Type TGameWorld Extends TGameEntity
 	Method New()
 		GameSignals.RegisterSignalReceiver(TPlayerEntity.SIGNAL_PLAYER_FIREBULLET, _OnBulletGetsFired)
 		GameSignals.RegisterSignalReceiver(TMothershipEntity.SIGNAL_MOTHERSHIP_FIREBULLET, _OnBulletGetsFired)
+		GameSignals.RegisterSignalReceiver(TMothershipDropWallEntity.SIGNAL_MOTHERSHIPDROPWALL_FIREBULLET, _OnBulletGetsFired)
 	End Method
 
 
@@ -44,20 +45,37 @@ Type TGameWorld Extends TGameEntity
 	Method OnBulletGetsFired:Int(signalName:String, data:Object, sender:Object)
 		Local entity:TGameEntity = TGameEntity(sender)
 		If Not entity Then Return False
-		
-		Local bullet:TBulletEntity = New TBulletEntity
-		bullet.emitterID = entity.id
+
+		Local bullet:TBulletEntity
 		if entity = player
+			bullet = New TBulletEntity
+			bullet.SetEmitter(entity.id)
+			bullet.emitterID = entity.id
 			bullet.SetVelocity(New SVec2F(0, -400))
-			bullet.SetPosition(New SVec2F(player.pos.x, player.pos.y - player.size.y/2))
+			bullet.SetPosition(player.pos.x, player.pos.y - player.size.y/2)
 		Elseif entity = mothership
+			bullet = New TBulletEntity
+			bullet.SetEmitter(entity.id)
 			bullet.SetVelocity(New SVec2F(0, +400))
-			bullet.SetPosition(New SVec2F(mothership.pos.x, mothership.pos.y + mothership.size.y/2))
+			bullet.SetPosition(mothership.pos.x, mothership.pos.y + mothership.size.y/2)
 			'make it a "drop"
 			print "drop to lane: " + mothershipDropWall.GetLaneNumber(mothership.pos.x, 2)
+		Elseif entity = mothershipDropWall
+			Local lane:TMothershipDropLaneEntity = mothershipDropWall.GetLane( Int(String(data)) )
+			if lane
+				bullet = New TMothershipDropEntity
+				bullet.SetEmitter(mothershipDropWall.id) 'other emitter
+				bullet.SetVelocity(New SVec2F(0, +400))
+				bullet.SetPosition(lane.GetPosition().x + lane.size.x/2, lane.GetPosition().y + lane.size.y/2)
+				bullet.SetSize(lane.size.x, 20)
+			EndIf
+		Else
+			Throw "OnBulletGetsFired with unsupported entity type"
 		EndIf
-
-		bullets.AddLast(bullet)
+		if bullet
+			bullet.SetParent(self)
+			bullets.AddLast(bullet)
+		endif
 	End Method
 	
 
@@ -184,7 +202,7 @@ Type TGameWorld Extends TGameEntity
 				EndIf
 			EndIf
 
-			If mothershipDropWall.IntersectsWith(bullet)
+			If bullet.emitterID <> mothershipDropWall.id and mothershipDropWall.IntersectsWith(bullet)
 				'wall or lane hit?
 				Local laneNumber:Int = mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
 
@@ -224,11 +242,30 @@ Type TGameWorld Extends TGameEntity
 				AddExplosion(bullet.pos.x, pos.y, 2)
 				bullet.alive = False
 				continue
-			ElseIf bullet.pos.y + bullet.size.y/2 > pos.y + size.y - self.groundHeight 'player.pos.y + player.size.y/2
+			ElseIf bullet.emitterID <> player.ID and bullet.pos.y + bullet.size.y/2 > size.y - self.groundHeight 'player.pos.y + player.size.y/2
 				AddExplosion(bullet.pos.x, pos.y + size.y - self.groundHeight)
 				bullet.alive = False
 				continue
 			Endif
+			
+			
+			'did it hit another bullet?
+			For Local otherBullet:TBulletEntity = EachIn bullets
+				'avoid friendly fire
+				If otherBullet.emitterID = bullet.emitterID Then continue
+
+				If otherBullet.emitterID = player.id 
+					If otherBullet.IntersectsWith(bullet)
+						ChangeScore(+20)
+						'both explosion styles -> "circle"
+						AddExplosion(bullet.pos.x, bullet.pos.y + bullet.size.y, 1)
+						AddExplosion(bullet.pos.x, bullet.pos.y + bullet.size.y, 2)
+						otherBullet.alive = False
+						bullet.alive = False
+						Continue
+					EndIf
+				EndIf
+			Next
 		Next
 		'remove dead bullets
 		For Local bullet:TBulletEntity = EachIn bullets.Reversed()

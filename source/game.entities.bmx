@@ -1,6 +1,7 @@
 SuperStrict
 Import Brl.ObjectList
 Import Math.Vector
+Import Random.Xoshiro
 Import "game.globals.bmx"
 
 
@@ -365,6 +366,7 @@ End Type
 
 Type TMothershipDropLaneEntity Extends TGameEntity
 	Field levels:TMothershipDropEntity[]
+	Field levelTime:Int
 	
 	Method GetLevelAmount:Int()
 		Return levels.length
@@ -402,6 +404,8 @@ Type TMothershipDropLaneEntity Extends TGameEntity
 				levels[i] = dropEntity
 			EndIf
 		Next
+		
+		levelTime = Millisecs()
 		Return True
 	End Method
 
@@ -445,7 +449,12 @@ Type TMothershipDropWallEntity Extends TGameEntity
 	Field dropLaneWidth:Int = 24
 	Field dropLanes:TMothershipDropLaneEntity[]
 	Field bombSlotWidth:Int = 96
-	
+	Field dropInterval:Int = 2000
+	Field nextDropLane:Int
+	Field lastDropTime:Int
+
+	Global SIGNAL_MOTHERSHIPDROPWALL_FIREBULLET:ULong = GameSignals.RegisterSignal("mothershipdropwall.firebullet")
+
 	Method New()
 		wallsPos = New SVec2F[dropLaneCount + 2]
 		' prepare slot array so all can "fit in"
@@ -543,6 +552,33 @@ Type TMothershipDropWallEntity Extends TGameEntity
 			Return True
 		Else
 			Return False
+		EndIf
+	End Method
+
+
+	Method FireBullet()
+		Local lane:TMothershipDropLaneEntity = GetLane(nextDropLane)
+		if not lane or lane.GetLevel() = 0 Then Return
+print "Firebullet" + nextDropLane
+		GameSignals.EmitSignal(SIGNAL_MOTHERSHIPDROPWALL_FIREBULLET, String(nextDropLane), self)
+		
+		lane.SetLevel(lane.GetLevel() - 1)
+	End Method
+
+	
+	Method Behaviour:Int(delta:Float)
+		If Millisecs() - lastDropTime > dropInterval
+			'choose a lane
+			nextDropLane = Rand(1, dropLanes.length)
+			For local i:Int = 0 until dropLanes.length
+				local laneIndex:Int = (nextDropLane + i) mod dropLanes.length
+				if GetLane(laneIndex+1).GetLevel() > 0
+					nextDropLane = laneIndex+1
+					lastDropTime = Millisecs()
+					FireBullet()
+					exit
+				EndIf
+			Next
 		EndIf
 	End Method
 
