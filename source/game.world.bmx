@@ -76,8 +76,8 @@ Type TGameWorld Extends TGameEntity
 		mothership.SetSize(80, 40)
 
 		mothershipDropWall = New TMothershipDropWallEntity()
-		mothershipDropWall.SetPosition(pos.x + size.x/2, 100 + 100/2)
-		mothershipDropWall.SetSize(size.x, 100)
+		mothershipDropWall.SetPosition(pos.x + size.x/2, 120 + 110/2)
+		mothershipDropWall.SetSize(size.x, 110)
 
 		foregroundEntities.AddLast(mothershipDropWall)
 
@@ -185,14 +185,35 @@ Type TGameWorld Extends TGameEntity
 			EndIf
 
 			If mothershipDropWall.IntersectsWith(bullet)
-				'wall hit?
-				If Not mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
+				'wall or lane hit?
+				Local laneNumber:Int = mothershipDropWall.GetLaneNumber(bullet.pos.x, bullet.size.x)
+
+				'hit the wall
+				If not laneNumber
 					if bullet.emitterID = player.id
 						AddExplosion(bullet.pos.x, mothershipDropWall.pos.y + mothershipDropWall.size.y/2, 2)
 					EndIf
 
 					mothershipDropWall.OnGetHit(bullet.emitterID)
 					bullet.alive = False
+				Else
+					if bullet.emitterID = mothership.id
+						'fill a lane (TODO: what happens if "full" - drop bomb?
+						If Not mothershipDropWall.DropToLane(laneNumber)
+							print "lane " + laneNumber + " full ... drop bomb?"
+						EndIf
+						bullet.alive = False
+					EndIf
+
+					if bullet.emitterID = player.id
+						Local laneLevel:Int = mothershipDropWall.GetLane(laneNumber).GetLevel()
+						If laneLevel > 0
+							ChangeScore(+50)
+							AddExplosion(bullet.pos.x, mothershipDropWall.pos.y + mothershipDropWall.size.y/2, 2)
+							mothershipDropWall.GetLane(laneNumber).SetLevel(laneLevel - 1)
+							bullet.alive = False
+						EndIf
+					EndIf
 				EndIf
 				continue
 			EndIf

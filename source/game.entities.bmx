@@ -58,15 +58,42 @@ Type TGameEntity
 	Field hitable:Int = False
 	Field destroyable:Int = False
 	Field alive:Int = True
+	Field parent:TGameEntity
+	Field signals:TSignalSystem 'by default unused! null!
 	
 	Field id:Int
 	Global _lastID:Int
+
 	
 	Method New()
 		_lastID :+ 1
 		self.id = _lastID
 	End Method
 	
+	
+    Method SetParent(p:TGameEntity)
+		'inform parent
+		'If self.parent
+		'	self.parent.RemoveChild(self)
+		'EndIf
+
+        self.parent = p
+
+		'If self.parent
+		'	self.parent.AddChild(self)
+		'EndIf
+    End Method
+    
+    
+    Method GetPosition:SVec2F()
+		If parent
+			Return parent.GetPosition() + pos
+		Else
+			return pos
+		EndIf
+    End Method
+
+   	
 
 	Method SetPosition(pos:SVec2F) Final
 		SetPosition(pos.x, pos.y)
@@ -74,6 +101,9 @@ Type TGameEntity
 
 	Method SetPosition(x:Float, y:Float)
 		self.pos = New SVec2F(x, y)
+		
+		'if someone is interested, we inform them
+		If signals Then signals.EmitSignal("setposition".hash(), null, self)
 	End Method
 
 
@@ -302,8 +332,33 @@ End Type
 
 
 
-Type TMothershipDropEntity Extends TGameEntity
-	'Todo: move down, emit signal when "full" etc
+Type TMothershipDropEntity Extends TBulletEntity
+	Global SIGNAL_MOTHERSHIPDROP_GOTHIT:ULong = GameSignals.RegisterSignal("mothershipdrop.gothit")
+
+
+	' information that an other entity has hit this mothership
+	Method OnGetHit:Int(hittingEntityID:Int, localX:Int=0, localY:Int=0)
+		GameSignals.EmitSignal(SIGNAL_MOTHERSHIPDROP_GOTHIT, null, self)
+
+		' TODO: eg animate damage / shake something
+	End Method
+
+
+	Method Behaviour:Int(delta:Float) override
+		'
+	End Method
+	
+
+	Method Render:Int() override
+		Local oldCol:SColor8; GetColor(oldCol)
+
+		SetColor 200,200,200
+		Local worldPos:SVec2F = GetPosition()
+		DrawRect(worldPos.x - self.size.x/4, worldPos.y, self.size.x/2, self.size.y/2)
+		DrawRect(worldPos.x - self.size.x/2, worldPos.y - self.size.y/2, self.size.x, self.size.y/2)
+
+		SetColor(oldCol)
+	End Method
 End Type
 
 
@@ -311,8 +366,69 @@ End Type
 Type TMothershipDropLaneEntity Extends TGameEntity
 	Field levels:TMothershipDropEntity[]
 	
+	Method GetLevelAmount:Int()
+		Return levels.length
+	End Method
+
+
 	Method SetLevelAmount(levelAmount:Int)
 		levels = levels[.. levelAmount]
+	End Method
+
+
+	Method GetLevel:Int()
+		For Local i:Int = 0 until levels.length
+			If not levels[i] Then Return i 
+		Next
+		Return levels.length
+	End Method
+	
+		
+	Method SetLevel:Int(level:Int)
+		If level < 0 or level > levels.length Then Return False
+
+		Local levelIndex:Int = level -1
+		For Local i:Int = 0 until levels.length
+			'remove no longer needed
+			if i > levelIndex 
+				levels[i] = Null
+			'create new
+			ElseIf i <= levelIndex And Not levels[i] 
+				Local dropEntity:TMothershipDropEntity = New TMothershipDropEntity
+				dropEntity.SetSize(self.size.x, 20)
+				dropEntity.SetPosition(dropEntity.size.x/2, self.size.y - i * (dropEntity.size.y + 5))
+				dropEntity.SetParent(self) 'position relatively until they become separated
+
+				levels[i] = dropEntity
+			EndIf
+		Next
+		Return True
+	End Method
+
+
+	Method Update:Int(delta:Float) override
+		Local result:Int = Super.Update(delta)
+
+		'also update drop entities
+		For Local e:TMothershipDropEntity = EachIn levels
+			e.Update(delta)
+		Next
+	End Method
+	
+	
+	Method Render:Int() override
+		Local result:Int = Super.Render()
+
+		'SetColor 255,0,0
+		'Local worldPos:SVec2F = GetPosition()
+		'DrawRect(worldPos.x, worldPos.y, self.size.x, self.size.y)
+
+		'also render drop entities
+		For Local e:TMothershipDropEntity = EachIn levels
+			e.Render()
+		Next
+	
+'		DrawText(GetLevel(), GetPosition().x, GetPosition().y + size.y)
 	End Method
 End Type
 
@@ -320,10 +436,10 @@ End Type
 
 
 Type TMothershipDropWallEntity Extends TGameEntity
-	'center position of walls inside of the entity (local positions) 
-	Field wallsCenterPos:SVec2F[]
+	'topleft position of walls inside of the entity (local positions) 
+	Field wallsPos:SVec2F[]
 	Field wallWidth:Int = 24
-	Field wallHeight:Int = 100
+	Field wallHeight:Int = 110
 	Field dropLaneCount:Int = 12    ' how many drop lane
 	Field dropLaneLevels:Int = 5    ' how many levels each drop lane has 
 	Field dropLaneWidth:Int = 24
@@ -331,12 +447,14 @@ Type TMothershipDropWallEntity Extends TGameEntity
 	Field bombSlotWidth:Int = 96
 	
 	Method New()
-		wallsCenterPos = New SVec2F[dropLaneCount + 2]
+		wallsPos = New SVec2F[dropLaneCount + 2]
 		' prepare slot array so all can "fit in"
 		dropLanes = new TMothershipDropLaneEntity[dropLaneCount]
 		For local i:Int = 0 until dropLanes.length
 			dropLanes[i] = New TMothershipDropLaneEntity
 			dropLanes[i].SetLevelAmount(dropLaneLevels)
+			dropLanes[i].SetParent(self) 'position relatively
+			dropLanes[i].SetSize(dropLaneWidth, wallHeight)
 		Next
 	End Method
 	
@@ -347,12 +465,19 @@ Type TMothershipDropWallEntity Extends TGameEntity
 		'knowing the size we can now align stuff
 		wallHeight = size.y
 		
-		local halfWidth:Int = (wallsCenterPos.length * wallWidth + dropLaneCount * dropLaneWidth + bombSlotWidth) / 2
-		For local i:int = 0 until 7
-			wallsCenterPos[i] = New SVec2F(-halfWidth + i * (wallWidth + dropLaneWidth), -wallHeight/2)
+		local halfWidth:Int = (wallsPos.length * wallWidth + dropLaneCount * dropLaneWidth + bombSlotWidth) / 2
+		
+		'orient walls and lanes to center point of widget.
+		'(their anchors is "top left")
+		local wallsPerSide:Int = wallsPos.length/2
+		For local i:int = 0 until wallsPerSide
+			wallsPos[i] = New SVec2F(-halfWidth + i * (wallWidth + dropLaneWidth), -wallHeight/2)
+			wallsPos[i+wallsPerSide] = New SVec2F(bombSlotWidth/2 + i*(wallWidth + dropLaneWidth), -wallHeight/2)
 		Next
-		For local i:int = 0 until 7
-			wallsCenterPos[i+7] = New SVec2F(bombSlotWidth/2 + i*(wallWidth + dropLaneWidth), -wallHeight/2)
+		Local dropLanesPerSide:Int = dropLanes.length / 2 
+		For Local i:Int = 0 until dropLanesPerSide
+			dropLanes[i].SetPosition(wallsPos[i].x + wallWidth, -wallHeight/2)
+			dropLanes[i+dropLanesPerSide].SetPosition(wallsPos[i+dropLanesPerSide+1].x + wallWidth, -wallHeight/2)
 		Next
 	End Method
 
@@ -363,58 +488,88 @@ Type TMothershipDropWallEntity Extends TGameEntity
 		'before doing fine grained checks, we check the bounding box
 		If Not Super.IntersectsWith(x,y,w,h) Then Return False
 
-		'make coords local to "top left" to calculate positions in only once
-		x :- (self.pos.x - self.size.x/2)
-		y :- (self.pos.y - self.size.y/2)
+		'make coords local to "center" to calculate positions in only once
+		x :- (self.pos.x)
+		y :- (self.pos.y)
 
+		Local wallY:Int = self.wallsPos[0].y
 		'check y once and then only x'es (as there are more variants)
-		if y + h < 0 Then Return False
-		if y > self.size.y Then Return False
+		if y + h < wallY Then Return False
+		if y > wallY + self.wallHeight Then Return False
 
 		'left or right of wall
-		if x + w < self.wallsCenterPos[0].x - self.wallWidth Then Return False
-		if x > self.size.x Then Return False
+		if x + w < self.wallsPos[0].x Then Return False
+		if x > self.wallsPos[self.wallsPos.length-1].x + self.wallWidth Then Return False
 		'right of left wall and left of right wall (aka in the middle)
-		if x > wallsCenterPos[6].x + wallWidth and x + w < wallsCenterPos[7].x Then Return False
-		
+		if x > wallsPos[6].x + self.wallWidth and x + w < wallsPos[7].x Then Return False
+
 		Return True
 	End Method
 	
 	
 	Method GetLaneNumber:Int(x:Float, width:Int)
-		'make x local to "top left" to calculate it only once
+		'make x local to "center" to calculate it only once
 		x :- (self.pos.x)
 
 		Local xL:Int = x - width/2
 		Local xR:Int = x + width/2
-		For local i:Int = 1 until 14
-			if xL > wallsCenterPos[i-1].x + wallWidth and xR < wallsCenterPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
+		For Local i:Int = 0 until dropLanes.length
+			if xL > dropLanes[i].pos.x and xR < dropLanes[i].pos.x + dropLanes[i].size.x Then Return i+1
 		Next
+
+'		For local i:Int = 1 until 14
+'			if xL > wallsPos[i-1].x + wallWidth and xR < wallsPos[i].x Then Return i 'so < wall 2(index1) returns slot 1
+'		Next
 		Return 0
+	End Method
+
+
+	Method GetLane:TMothershipDropLaneEntity(laneNumber:Int)
+		If laneNumber < 1 or laneNumber > dropLanes.length Then Return Null
+		Return dropLanes[laneNumber -1]
 	End Method
 	
 	
 	'returns wether dropping was possible or not
 	Method DropToLane:Int(laneNumber:Int)
 		Local laneIndex:Int = laneNumber - 1
-		If laneIndex < 0 or laneIndex >= dropLanes.length Then Return -1
+		If laneIndex < 0 or laneIndex >= dropLanes.length Then Return False
 		
 		Local lane:TMothershipDropLaneEntity = dropLanes[laneIndex]
-		'if self.dropLanes
-		
-		Return True
+
+		Local laneLevel:Int = lane.GetLevel()
+		If laneLevel < lane.GetLevelAmount()
+			lane.SetLevel(laneLevel + 1)
+			Return True
+		Else
+			Return False
+		EndIf
 	End Method
 
 	
+	Method Update:Int(delta:Float) override
+		Local result:Int = Super.Update(delta)
+
+		'update lanes
+		For Local e:TGameEntity = EachIn dropLanes
+			e.Update(delta)
+		Next
+	End Method
+
+
 	Method Render:Int() override
 		Local oldCol:SColor8; GetColor(oldCol)
 
 		SetColor 100, 200, 255
 		For local i:int = 0 until 14
-			DrawRect(self.pos.x + wallsCenterPos[i].x, self.pos.y + wallsCenterPos[i].y, wallWidth, wallHeight)
+			DrawRect(self.pos.x + wallsPos[i].x, self.pos.y + wallsPos[i].y, wallWidth, wallHeight)
 		Next
-
 		SetColor(oldCol)
+		
+		'draw lanes
+		For local lane:TGameEntity = EachIn dropLanes
+			lane.Render()
+		Next
 	End Method
 End Type
 
@@ -494,7 +649,7 @@ Type TExplosionEntity Extends TGameEntity
 					DrawRect(self.pos.x - 5, self.pos.y + 20, 10, 10)
 				EndIf
 		End Select
-
+		
 		SetColor(oldCol)
 	End Method
 End Type
